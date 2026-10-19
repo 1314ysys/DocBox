@@ -1,5 +1,6 @@
 import { esc, fmtBytes, extOf } from './dom.mjs';
 import { addRecent } from './store.mjs';
+import { mediaKind, canPlayInBrowser } from './media.mjs';
 
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif']);
 
@@ -11,8 +12,15 @@ export function renderResults(container, data, toolName) {
   const cards = files.map((f) => {
     const ext = extOf(f.name);
     const isImage = IMAGE_EXT.has(ext);
-    return `<div class="result-item">
-      ${isImage ? `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy">` : `<span class="r-ext">${esc(ext.replace('.', '').toUpperCase() || 'FILE')}</span>`}
+    const kind = mediaKind(f.name);
+    const playable = kind && canPlayInBrowser(f.name);
+    const media = playable
+      ? (kind === 'video'
+        ? '<video class="r-media" src="' + esc(f.url) + '" controls preload="metadata" playsinline></video>'
+        : '<audio class="r-audio" src="' + esc(f.url) + '" controls preload="metadata"></audio>')
+      : (kind ? '<span class="r-ext">' + esc(ext.replace('.', '').toUpperCase()) + '</span><div class="r-hint">该格式需下载后播放，或先转码为 MP4 / MP3</div>' : '<span class="r-ext">' + esc(ext.replace('.', '').toUpperCase() || 'FILE') + '</span>');
+    return `<div class="result-item${kind ? ' result-media' : ''}">
+      ${isImage ? `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy">` : media}
       <div class="r-meta"><b title="${esc(f.name)}">${esc(f.name)}</b><span>${fmtBytes(f.size)}</span></div>
       <a class="btn btn-ghost btn-sm" href="${esc(f.url)}" download="${esc(f.name)}">下载</a>
     </div>`;

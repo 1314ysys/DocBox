@@ -6,7 +6,7 @@ const HERO_COPY = {
   home: { eyebrow: 'LOCAL-FIRST · 本地优先', title: '文档与图片，<em>一站处理</em>', desc: '图片、PDF、文档、表格、OCR、音视频、网络安全 7 大模块，全部在本机完成，任务自动入库 MySQL。' },
   image: { eyebrow: 'IMAGE · 图片工具', title: '水印、证件照与<em>批量处理</em>', desc: '7 套现场工作水印、证件照 A4 排版、压缩 / 转换 / 尺寸调整，全部本地用 Sharp 完成。' },
   pdf: { eyebrow: 'PDF · 文档能力', title: '从合并到<em>加密与渲染</em>', desc: '合并拆分、页面组织、AES 加密、PDF ⇄ 图片、文字提取，21 项原生能力不依赖 Java。' },
-  doc: { eyebrow: 'DOC · 文档转换', title: 'Word / Markdown <em>转 PDF</em>', desc: 'docx、md、html、csv 转 PDF，或把 Word / HTML 转成干净的 Markdown。' },
+  doc: { eyebrow: 'DOC · 文档工具', title: 'Word / Excel / PPT / Markdown <em>与 PDF 互转</em>', desc: '15 项文档能力：Word / Excel / PowerPoint / Markdown / TXT / HTML 转 PDF，公文一键排版，Markdown 编辑器与表格生成器，全部本机完成。' },
   sheet: { eyebrow: 'SHEET · 表格处理', title: 'Excel、CSV 与 <em>JSON</em>', desc: '多工作表拆分、格式互转、按行输出对象数组，方便接口联调。' },
   ocr: { eyebrow: 'OCR · 离线识别', title: '中文识别，<em>无需联网</em>', desc: 'tesseract.js + chi_sim 模型，图片批量识别与整本 PDF 识别，可复制或导出 TXT。' },
   media: { eyebrow: 'MEDIA · 音视频', title: '转码、剪辑与<em>提取音轨</em>', desc: '18 项 ffmpeg 能力在本机进程内调用，无需另装服务，最长 20 分钟自动保护。' },

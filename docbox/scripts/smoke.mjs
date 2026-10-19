@@ -106,10 +106,10 @@ record('管理员拥有全部模块', (login.payload.user?.modules || []).length
 const me = await getJson('登录态回读', '/api/auth/me');
 record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
 const health = await getJson('健康检查（免登录）', '/api/health');
-record('版本号 0.1.2', health.version === '0.1.2', 0, health.version);
+record('版本号 0.1.3', health.version === '0.1.3', 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
-record('套件工具 57 / 合计 75', app.suiteToolCount === 57 && app.toolCount === 75, 0, app.suiteToolCount + ' / ' + app.toolCount);
+record('套件 57 + 自研 32 - 重复 2 = 87', app.suiteToolCount === 57 && app.nativeToolCount === 32 && app.toolCount === 87, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');
 record('app 携带账户信息', app.auth?.user?.username === 'root', 0, app.auth?.user?.role || '');
 const notFound = await fetch(BASE + '/api/not-exist', { headers: authHeaders() });
 record('未知接口 404', notFound.status === 404, 0, 'HTTP ' + notFound.status);
@@ -233,7 +233,32 @@ const dirs = await post('敏感目录探测', N + 'dirs', { fields: { url: BASE,
 record('目录探测返回', Array.isArray(dirs.payload.data?.hits) || Boolean(dirs.payload.data), 0, 'ok');
 await post('IP 归属信息', N + 'ip-info', { fields: { ip: '127.0.0.1' } });
 
-// ---------------- G. 数据库 / 历史 ----------------
+// ---------------- G. 文档工具（15 项） ----------------
+const DOC = '/api/doc/';
+await post('Word 转 PDF', DOC + 'word-to-pdf', { field: 'file', files: ['sample.docx'] });
+await post('Excel 转 PDF', DOC + 'excel-to-pdf', { field: 'file', files: ['sample.xlsx'] });
+const ppt = await post('PowerPoint 转 PDF', DOC + 'pptx-to-pdf', { field: 'file', files: ['sample.pptx'] });
+record('PPT 输出 2 页 PDF', (ppt.payload.files?.[0]?.size || 0) > 1500, 0, (ppt.payload.files?.[0]?.size || 0) + ' bytes');
+await post('Markdown 转 PDF', DOC + 'md-to-pdf', { field: 'file', files: ['sample.md'] });
+await post('文本转 PDF', DOC + 'txt-to-pdf', { field: 'file', files: ['sample.txt'] });
+const txt = await post('Word 转 TXT', DOC + 'word-to-txt', { field: 'file', files: ['sample.docx'] });
+record('TXT 含正文', (txt.payload.files?.[0]?.size || 0) > 40, 0, (txt.payload.files?.[0]?.size || 0) + ' bytes');
+await post('Word 转 HTML', DOC + 'docx-to-html', { field: 'file', files: ['sample.docx'] });
+await post('Word 转 Markdown', DOC + 'to-markdown', { field: 'file', files: ['sample.docx'] });
+const h2w = await post('HTML 转 Word', DOC + 'html-to-docx', { field: 'file', files: ['sample.html'] });
+record('生成 docx', /docx$/.test(h2w.payload.files?.[0]?.name || ''), 0, h2w.payload.files?.[0]?.name || '');
+await post('Markdown 转 HTML', DOC + 'md-to-html', { field: 'file', files: ['sample.md'] });
+await post('HTML 转 Markdown', DOC + 'to-markdown', { field: 'file', files: ['sample.html'] });
+await post('批量转换 TXT', DOC + 'batch-convert', { field: 'files', fields: { target: 'txt' }, files: ['sample.docx', 'sample.html'] });
+const gw = await post('公文一键排版', DOC + 'gongwen', { field: 'file', fields: { output: 'both', lineSpacing: 28 }, files: ['sample.docx'] });
+record('公文输出 Word+PDF', /zip$/.test(gw.payload.files?.[0]?.name || ''), 0, gw.payload.files?.[0]?.name || '');
+const mt = await json('Markdown 表格生成', 'POST', DOC + 'md-table', { rows: 2, cols: 3, headers: '姓名,部门,备注', align: 'left,center,right' });
+record('表格含分隔行', /\| :--- \| :---: \| ---: \|/.test(mt.payload.data?.markdown || ''), 0, (mt.payload.data?.markdown || '').split('\n').length + ' 行');
+const mr = await json('Markdown 渲染预览', 'POST', DOC + 'md-render', { md: '## 标题\n\n**加粗**' });
+record('渲染含加粗标签', /<strong>/.test(mr.payload.data?.html || ''), 0, 'html ' + (mr.payload.data?.html || '').length);
+const wrongType = await post('错误类型被拒', DOC + 'md-to-pdf', { field: 'file', files: ['sample.docx'], expectStatus: 400 });
+
+// ---------------- H. 数据库 / 历史 ----------------
 const hist = await getJson('处理历史', '/api/history?limit=20');
 record('历史已入库', (hist.jobs || []).length > 0, 0, (hist.jobs || []).length + ' 条');
 record('任务统计', Number(hist.stats?.total) > 0, 0, 'total=' + hist.stats?.total);

@@ -3,7 +3,7 @@ const FIELD = (name, label, type, extra = {}) => ({ name, label, type, ...extra 
 export const CATS = {
   image: { name: '图片', desc: '压缩 · 转换 · 尺寸 · 水印 · 证件照 · 合成 PDF', icon: 'image' },
   pdf: { name: 'PDF', desc: '合并拆分 · 页面组织 · 加密 · 提取 · 信息', icon: 'pages' },
-  doc: { name: '文档', desc: 'Word / Markdown / HTML / Excel 与 PDF 互转', icon: 'doc' },
+  doc: { name: '文档', desc: 'Word / Excel / PPT / Markdown / TXT / HTML 与 PDF 互转 · 公文排版', icon: 'doc' },
   sheet: { name: '表格', desc: 'Excel / CSV / JSON 互转', icon: 'sheet' },
   ocr: { name: '文字识别', desc: '图片与 PDF 的离线 OCR（中文）', icon: 'scan' },
   media: { name: '音视频', desc: '转码 · 压缩 · 剪辑 · 合并 · GIF · 提音 · 水印', icon: 'video' },
@@ -115,20 +115,83 @@ export const NATIVE_TOOLS = [
   { id: 'pdf-extract', cat: 'pdf', name: 'PDF 拆解导出', icon: 'eye', badge: '前端', route: '#/extract', desc: '导出页面图片、提取文字、查看页数' },
   { id: 'ocr', cat: 'ocr', name: 'OCR 文字识别', icon: 'scan', badge: '离线', route: '#/ocr', desc: '图片识别与 PDF 整本识别，支持导出 TXT' },
   {
-    id: 'doc-to-pdf', cat: 'doc', name: '文档转 PDF', icon: 'doc', badge: '本地',
-    desc: 'Word(.docx) / Markdown / HTML / Excel / CSV 转 PDF',
-    accept: '.docx,.md,.markdown,.html,.htm,.txt,.csv,.xlsx,.xls', multiple: false, endpoint: '/api/doc/to-pdf', field: 'file',
+    id: 'doc-word-to-pdf', cat: 'doc', name: 'Word 转 PDF', icon: 'doc', badge: '本地',
+    desc: 'Word(.docx) 转 PDF，保留标题、列表、表格与图片',
+    accept: '.docx', multiple: false, endpoint: '/api/doc/word-to-pdf', field: 'file',
   },
   {
-    id: 'docx-to-html', cat: 'doc', name: 'Word 转 HTML', icon: 'convert', badge: '本地',
+    id: 'doc-excel-to-pdf', cat: 'doc', name: 'Excel 转 PDF', icon: 'sheet', badge: '本地',
+    desc: 'Excel / CSV 转 PDF，多工作表自动分页',
+    accept: '.xlsx,.xls,.csv', multiple: false, endpoint: '/api/doc/excel-to-pdf', field: 'file',
+  },
+  {
+    id: 'doc-pptx-to-pdf', cat: 'doc', name: 'PowerPoint 转 PDF', icon: 'pages', badge: '本地',
+    desc: 'PPTX 按幻灯片逐页输出横向 PDF（文字 + 图片）',
+    accept: '.pptx', multiple: false, endpoint: '/api/doc/pptx-to-pdf', field: 'file',
+  },
+  {
+    id: 'doc-md-to-pdf', cat: 'doc', name: 'Markdown 转 PDF', icon: 'markdown', badge: '本地',
+    desc: 'Markdown 转排版好的 PDF，支持表格与代码块',
+    accept: '.md,.markdown', multiple: false, endpoint: '/api/doc/md-to-pdf', field: 'file',
+  },
+  {
+    id: 'doc-txt-to-pdf', cat: 'doc', name: '文本转 PDF', icon: 'doc', badge: '本地',
+    desc: '纯文本转 PDF，等宽保留换行',
+    accept: '.txt', multiple: false, endpoint: '/api/doc/txt-to-pdf', field: 'file',
+  },
+  { id: 'doc-md-editor', cat: 'doc', name: 'Markdown 编辑器', icon: 'markdown', badge: '实时预览', route: '#/md-editor',
+    desc: '左边写 Markdown，右边实时预览，可导出 HTML / PDF / .md' },
+  {
+    id: 'doc-html-to-word', cat: 'doc', name: 'HTML 转 Word', icon: 'convert', badge: '本地',
+    desc: '把 HTML 转成可编辑的 .docx（标题/列表/加粗保留）',
+    accept: '.html,.htm', multiple: false, endpoint: '/api/doc/html-to-docx', field: 'file',
+  },
+  {
+    id: 'doc-word-to-html', cat: 'doc', name: 'Word 转 HTML', icon: 'convert', badge: '本地',
     desc: '.docx 转成带样式的独立 HTML',
     accept: '.docx', multiple: false, endpoint: '/api/doc/docx-to-html', field: 'file',
   },
   {
-    id: 'doc-to-markdown', cat: 'doc', name: '文档转 Markdown', icon: 'markdown', badge: '本地',
-    desc: '.docx / .html 转 Markdown，适合写文档与知识库',
-    accept: '.docx,.html,.htm', multiple: false, endpoint: '/api/doc/to-markdown', field: 'file',
+    id: 'doc-word-to-txt', cat: 'doc', name: 'Word 转 TXT', icon: 'doc', badge: '本地',
+    desc: '.docx 提取纯文本，去掉格式',
+    accept: '.docx', multiple: false, endpoint: '/api/doc/word-to-txt', field: 'file',
   },
+  {
+    id: 'doc-batch-convert', cat: 'doc', name: 'Word 格式转换（批量）', icon: 'convert', badge: '批量',
+    desc: '批量把 Word / HTML / Markdown 转成 TXT、HTML、Markdown 或 PDF',
+    accept: '.docx,.html,.htm,.md,.markdown,.txt', multiple: true, endpoint: '/api/doc/batch-convert', field: 'files',
+    fields: [
+      FIELD('target', '目标格式', 'select', { value: 'txt', options: [['txt', 'TXT（纯文本）'], ['html', 'HTML（带样式）'], ['md', 'Markdown'], ['pdf', 'PDF']] }),
+    ],
+  },
+  {
+    id: 'doc-word-to-md', cat: 'doc', name: 'Word 转 Markdown', icon: 'markdown', badge: '本地',
+    desc: '.docx 转 Markdown，适合写文档与知识库',
+    accept: '.docx', multiple: false, endpoint: '/api/doc/to-markdown', field: 'file',
+  },
+  {
+    id: 'doc-md-to-html', cat: 'doc', name: 'Markdown 转 HTML', icon: 'convert', badge: '本地',
+    desc: 'Markdown 转成独立 HTML 文件（自带样式）',
+    accept: '.md,.markdown,.txt', multiple: false, endpoint: '/api/doc/md-to-html', field: 'file',
+  },
+  {
+    id: 'doc-html-to-md', cat: 'doc', name: 'HTML 转 Markdown', icon: 'markdown', badge: '本地',
+    desc: '把网页或 HTML 片段转成 Markdown',
+    accept: '.html,.htm', multiple: false, endpoint: '/api/doc/to-markdown', field: 'file',
+  },
+  {
+    id: 'doc-gongwen', cat: 'doc', name: '公文一键排版', icon: 'docs', badge: '公文', 
+    desc: 'A4 版式、标题小标宋二号、正文仿宋三号、首行缩进两字、页码、附件换页',
+    accept: '.docx,.txt,.md', multiple: false, endpoint: '/api/doc/gongwen', field: 'file',
+    fields: [
+      FIELD('output', '输出格式', 'select', { value: 'both', options: [['both', 'Word + PDF'], ['docx', '仅 Word (.docx)'], ['pdf', '仅 PDF']] }),
+      FIELD('lineSpacing', '行距（磅）', 'number', { value: 28 }),
+      FIELD('pageNumbers', '页码', 'select', { value: '1', options: [['1', '添加（居中 — 1 —）'], ['0', '不加']] }),
+      FIELD('attachBreak', '附件另起一页', 'select', { value: '1', options: [['1', '是'], ['0', '否']] }),
+    ],
+  },
+  { id: 'doc-md-table', cat: 'doc', name: 'Markdown 表格生成器', icon: 'sheet', badge: '生成器', route: '#/md-table',
+    desc: '按行数、列数生成标准 Markdown 表格模板，可选列对齐' },
   {
     id: 'sheet-convert', cat: 'sheet', name: '表格格式转换', icon: 'sheet', badge: '本地',
     desc: 'Excel ⇄ CSV ⇄ JSON，多工作表自动拆分',
@@ -174,9 +237,9 @@ export const MODULE_ART = {
     { ico: 'PG', title: '页面组织', sub: '重排 · 旋转 · 拼版' },
   ],
   doc: [
-    { ico: 'DOC', title: '转成 PDF', sub: 'Word / MD / HTML' },
-    { ico: 'MD', title: '转 Markdown', sub: '保留标题与列表' },
-    { ico: 'EDGE', title: '本机排版', sub: '免装 Office' },
+    { ico: 'DOC', title: 'Word / Excel / PPT 转 PDF', sub: '15 项文档能力 · 免装 Office' },
+    { ico: 'MD', title: 'Markdown 编辑器', sub: '实时预览 · 导出 HTML/PDF' },
+    { ico: 'GW', title: '公文一键排版', sub: 'A4 · 仿宋三号 · 页码' },
   ],
   sheet: [
     { ico: 'XLS', title: '表格互转', sub: 'Excel ⇄ CSV ⇄ JSON' },
@@ -210,7 +273,7 @@ export const MODULE_ART = {
   ],
 };
 
-const SKIP_SUITE = new Set(['pdf-split', 'pdf-img2pdf']);
+export const SKIP_SUITE = new Set(['pdf-split', 'pdf-img2pdf']);
 
 export function buildCatalog(app) {
   const tools = NATIVE_TOOLS.map((t) => ({ ...t }));

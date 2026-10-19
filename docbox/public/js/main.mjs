@@ -13,9 +13,11 @@ import { renderExtract } from './views/extract.mjs';
 import { renderOcr } from './views/ocr.mjs';
 import { renderHistory } from './views/history.mjs';
 import { renderAccounts } from './views/accounts.mjs';
+import { renderMdEditor } from './views/md-editor.mjs';
+import { renderMdTable } from './views/md-table.mjs';
 import { renderLogin, hideLogin } from './views/login.mjs';
 
-const VIEWS = ['home', 'tool', 'watermark', 'idphoto', 'editor', 'extract', 'ocr', 'history', 'accounts'];
+const VIEWS = ['home', 'tool', 'watermark', 'idphoto', 'editor', 'extract', 'ocr', 'history', 'accounts', 'md-editor', 'md-table'];
 let app = null;
 let wired = false;
 
@@ -134,6 +136,8 @@ function route() {
   if (head === 'extract') { if (!guard('pdf')) return; hideViews('extract'); syncNav('pdf'); renderExtract(app); return; }
   if (head === 'ocr') { if (!guard('ocr')) return; hideViews('ocr'); syncNav('ocr'); renderOcr(app); return; }
   if (head === 'history') { if (!guard('history')) return; hideViews('history'); syncNav('history'); renderHistory(app); return; }
+  if (head === 'md-editor') { if (!guard('doc')) return; hideViews('md-editor'); syncNav('doc'); renderMdEditor(app); return; }
+  if (head === 'md-table') { if (!guard('doc')) return; hideViews('md-table'); syncNav('doc'); renderMdTable(app); return; }
   if (head === 'accounts') {
     if (!isAdmin()) { toast('仅管理员可访问账户管理', 'error'); location.hash = '#/'; return; }
     hideViews('accounts');

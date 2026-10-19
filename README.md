@@ -3,9 +3,20 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.1.2` · 75 个工具 · 7 大模块 · 账户角色与模块授权 · 110 项冒烟断言全通过
+`v0.1.3` · 87 个可用工具 · 15 项文档能力 · 音视频预览 · 账户角色与模块授权 · 132 项冒烟断言全通过
 
 ---
+
+## 0.1.3 有什么变化
+
+- **文档模块扩到 15 项**（对齐 gongjuheji.com/document 的全部能力）：Word / Excel / PowerPoint / Markdown / 文本 → PDF，HTML ⇄ Word，Word → TXT / HTML / Markdown，Markdown → HTML，HTML → Markdown，Word 批量格式转换，公文一键排版，Markdown 编辑器，Markdown 表格生成器。
+- **PDF 转换全部本地完成**：DOCX 用 OOXML 直写、PPTX 逐页解析（文字 + 图片）后用本机 Edge 打印，不装 Office / LibreOffice。
+- **公文一键排版**：A4 版式（上 37 / 下 35 / 左 28 / 右 26 mm）、标题小标宋二号、一级标题黑体、二级楷体、正文仿宋三号、首行缩进两字、28 磅行距、页码（— 1 —）、附件另起一页，同时输出 Word + PDF。
+- **Markdown 编辑器** `#/md-editor`：左侧编辑、右侧实时预览（服务端渲染 + 消毒）、字数行数统计、草稿自动存 localStorage，可导出 HTML / PDF / .md。
+- **Markdown 表格生成器** `#/md-table`：按行列生成标准表格，支持表头与列对齐，一键复制 / 下载 / 送入编辑器。
+- **音视频预览**：音视频工具选文件后立即内嵌播放器（显示格式、体积、时长、分辨率），处理结果卡片同样内嵌播放器；浏览器不支持的容器会提示先转码。
+- 修复：单文件工具（PDF 拆分 / 页面管理 / 水印 / 文档类工具）上传字段名写死 `files` 导致 400 的问题。
+- 修复：`/api/app` 的工具计数改为按实际目录计算（不再写死 75）。
 
 ## 0.1.2 有什么变化
 
@@ -63,7 +74,7 @@ cd ..
 ```powershell
 cd docbox
 npm start            # node --max-old-space-size=1536 server.mjs
-npm run smoke        # 86 项冒烟检查（需服务已启动）
+npm run smoke        # 132 项冒烟检查（需服务已启动）
 ```
 
 ## 本地数据库
@@ -93,14 +104,38 @@ npm run smoke        # 86 项冒烟检查（需服务已启动）
 
 > 想换库名/密码，改 `docbox/src/config.mjs` 的 `DB` 或设环境变量即可。
 
-## 工具清单（75 项）
+## 文档工具（15 项）
+
+对标 <https://gongjuheji.com/document> 的全部能力，全部本机实现：
+
+| 工具 | 输入 | 输出 | 说明 |
+| --- | --- | --- | --- |
+| Word 转 PDF | .docx | PDF | 保留标题 / 列表 / 表格 / 图片（mammoth + Edge 打印） |
+| Excel 转 PDF | .xlsx / .xls / .csv | PDF | 多工作表自动分页 |
+| PowerPoint 转 PDF | .pptx | 横向 PDF | 逐页解析文字与图片，A4 横向打印 |
+| Markdown 转 PDF | .md | PDF | 支持表格、代码块、引用 |
+| 文本转 PDF | .txt | PDF | 等宽保留换行 |
+| Markdown 编辑器 | 手动输入 | HTML / PDF / .md | 实时预览、草稿保存 |
+| HTML 转 Word | .html | .docx | 标题 / 列表 / 加粗转成 Word 段落 |
+| Word 转 HTML | .docx | .html | 带样式的独立文件 |
+| Word 转 TXT | .docx | .txt | 纯文本提取 |
+| Word 格式转换（批量） | 多文件 | TXT / HTML / MD / PDF | 一次转多个，自动打包 |
+| Word 转 Markdown | .docx | .md | ATX 标题 + 列表 |
+| Markdown 转 HTML | .md | .html | 独立 HTML（自带样式） |
+| HTML 转 Markdown | .html | .md | turndown 转换 |
+| 公文一键排版 | .docx / .txt / .md | Word + PDF | A4、仿宋三号、缩进、页码、附件换页 |
+| Markdown 表格生成器 | 行列数 | Markdown 表格 | 表头 + 列对齐 |
+
+> 图片转 PDF 在「图片」模块（图片合成 PDF），同样属于文档流水线。
+
+## 工具清单（87 项可用）
 
 | 分类 | 数量 | 代表能力 |
 | --- | --- | --- |
 | 图片 | 7 | 压缩、格式转换（含 AVIF）、尺寸调整、7 套水印、图片编辑、证件照 A4 排版、图片合成 PDF |
 | PDF（自研基础） | 7 | 合并、拆分、页面管理、PDF 水印、页码、压缩、拆解导出 |
 | PDF（原生套件） | 21 | 旋转 / 删页 / 重排 / 裁剪 / 缩放 / 多页合一 / 小册子 / 叠加 / 长页 / 解压 / 扁平化 / 去空白 / 加密(AES-256) / 解密 / 清理 / 元数据读写 / PDF→图片 / PDF→文字 / 图片提取 / 图片转 PDF / 书签 |
-| 文档 | 3 | Word / Markdown / HTML / Excel / CSV → PDF，`.docx` → HTML / Markdown |
+| 文档 | 15 | Word / Excel / PPT / Markdown / 文本 → PDF，HTML ⇄ Word，Word → TXT / HTML / MD，Markdown → HTML，批量转换，公文排版，Markdown 编辑器，表格生成器 |
 | 表格 | 2 | Excel ⇄ CSV ⇄ JSON、多工作表拆分 |
 | 文字识别 | 1 | 图片 + 整本 PDF 的离线中文 OCR（tesseract.js v7 + chi_sim） |
 | 账户管理 | 1 | 创建账户、角色（管理员/普通用户）、按模块授权、启停用、重置密码 |
@@ -121,12 +156,13 @@ docbox/
       pdfops.mjs           # 23 项原生 PDF 实现
       pdf-render.mjs       # pdfjs + @napi-rs/canvas 渲染
       media.mjs            # ffmpeg/ffprobe 封装（18 项）
+      docops.mjs           # DOCX 直写 / PPTX 解析 / 公文排版 / Markdown 工具
       netprobe.mjs         # 网络探测（16 项，纯 Node 实现）
       track.mjs            # 处理记录写入
     routes/                # auth / accounts / image / idphoto / pdf / suite / history / doc / sheet / ocr / meta
-  public/                  # 原生 ES 模块前端（core / tools / views），含登录页与账户管理页，无构建步骤
-  scripts/smoke.mjs        # 86 项冒烟测试
-  testdata/                # 冒烟用样例（PDF/图片/音视频/表格/文档）
+  public/                  # 原生 ES 模块前端（core / tools / views），含登录页、账户管理、Markdown 编辑器、音视频预览
+  scripts/smoke.mjs        # 132 项冒烟测试
+  testdata/                # 冒烟用样例（PDF / 图片 / 音视频 / 表格 / Word / PPTX / Markdown / HTML）
 version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码快照）
 ```
 
@@ -136,13 +172,14 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 
 ## 验证
 
-- `npm run smoke`：**110/110 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 音视频 16 · 网络安全 15 · 数据库 10 · 其它 19）
-- 浏览器（Edge/Chromium）实测：首页 75 张卡片、音视频/网络安全/历史页面、文件工具、JSON 结果面板均无控制台报错。
+- `npm run smoke`：**132/132 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 音视频 16 · 网络安全 15 · 数据库 10 · 其它 25）
+- 浏览器（Edge/Chromium）实测：首页 87 张卡片、文档 15 项、音视频预览与结果播放器、Markdown 编辑器导出、表格生成器、公文排版、账户权限，均无控制台报错。
 
 ## 版本历史
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
+| 0.1.3 | 2026-10-20 | 文档模块扩到 15 项（对齐 gongjuheji.com/document：PPT/Html↔Word/TXT/批量/公文排版/MD 编辑器/表格生成器），音视频预览播放器 |
 | 0.1.2 | 2026-10-20 | 登录 + 角色 + 模块授权（导航/路由/接口三重拦截）、账户管理页、展示卡片与模块一一对应 |
 | 0.1.1 | 2026-10-20 | 移除 Stirling-PDF 端口与 JDK；新增音视频 18 项、网络安全 16 项、原生 PDF 21 项；接入本地 MySQL；新增历史页 |
 | 0.1.0_beta | 2026-10-20 | 首个基线：Stirling 融合 + 7 套水印 + 离线 OCR + 前端模块化 |

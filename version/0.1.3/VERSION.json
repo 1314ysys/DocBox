@@ -1,0 +1,45 @@
+{
+  "name": "DocBox",
+  "version": "0.1.3",
+  "channel": "stable",
+  "released": "2026-10-20",
+  "gitTag": "v0.1.3",
+  "summary": "文档模块扩到 15 项（对齐 gongjuheji.com/document：Word/Excel/PPT/Markdown/TXT 转 PDF、HTML⇄Word、Word→TXT/HTML/MD、批量转换、公文一键排版、Markdown 编辑器、表格生成器）；音视频工具新增内嵌预览与结果播放器。",
+  "counts": {
+    "tools": 87,
+    "nativeTools": 32,
+    "suiteTools": 57,
+    "docTools": 15,
+    "mediaTools": 18,
+    "netTools": 16,
+    "modules": 9,
+    "dbTables": 7,
+    "catalogEntries": 89,
+    "note": "57 套件 + 32 自研 - 2 个重复入口（pdf-split / pdf-img2pdf）= 87 个可用工具"
+  },
+  "highlights": [
+    "文档 15 项：Word/Excel/PowerPoint/Markdown/文本转 PDF、HTML⇄Word、Word→TXT/HTML/Markdown、Markdown→HTML、HTML→Markdown、批量转换、公文排版、Markdown 编辑器、表格生成器",
+    "DOCX 由 OOXML 直写生成（styles/footer/page 域），PPTX 解析文字与图片后交本机 Edge 打印，全程不依赖 Office / LibreOffice",
+    "公文一键排版：A4(37/35/28/26mm)、标题小标宋二号、一级黑体、二级楷体、正文仿宋三号、首行缩进两字、28 磅行距、居中页码、附件另起一页，输出 Word + PDF",
+    "Markdown 编辑器 #/md-editor：实时预览（服务端渲染 + 消毒）、字数统计、localStorage 草稿、导出 HTML/PDF/.md",
+    "Markdown 表格生成器 #/md-table：行列数 + 表头 + 列对齐，复制/下载/送入编辑器",
+    "音视频预览：选文件即播放（格式/体积/时长/分辨率），结果卡片内嵌播放器，不支持的容器提示先转码",
+    "修复单文件工具上传字段写死 files 导致 400；/api/app 工具计数改为按目录计算"
+  ],
+  "requirements": {
+    "node": ">=20（实测 v24.20）",
+    "os": "Windows 10/11",
+    "edge": "需要（文档/PPT 转 PDF）",
+    "mysql": "8.x（账户与历史，可选）",
+    "ffmpeg": "随依赖安装"
+  },
+  "knownIssues": [
+    "PPTX 转换按文字与图片重建版式，复杂动画、SmartArt、图表不会完全还原",
+    "旧版 .ppt / .doc 需先另存为 .pptx / .docx",
+    "数据库不可用时进入免登录模式"
+  ],
+  "checks": {
+    "smoke": "132/132 通过（新增 16 项文档工具断言）",
+    "ui": "文档 15 项、音视频预览与结果播放器、Markdown 编辑器导出 HTML/PDF、表格生成器、公文排版、单文件工具修复均实测通过，控制台 0 报错"
+  }
+}

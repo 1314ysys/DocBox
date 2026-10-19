@@ -21,9 +21,9 @@ code { font-family: Consolas, monospace; background: #f1f5f9; padding: 0 3px; }
 .page-break { page-break-before: always; }
 `;
 
-export function wrapHtml(body, title = '文档') {
+export function wrapHtml(body, title = '文档', extraCss = '') {
   return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>' + title +
-    '</title><style>' + DOC_STYLES + '</style></head><body>' + body + '</body></html>';
+    '</title><style>' + DOC_STYLES + '\n' + extraCss + '</style></head><body>' + body + '</body></html>';
 }
 
 export function escapeHtml(s) {
