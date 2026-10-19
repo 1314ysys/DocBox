@@ -66,7 +66,7 @@ record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available
 const app = await getJson('应用清单', '/api/app');
 const counts = Object.fromEntries(Object.entries(app.suites || {}).map(([k, v]) => [k, v.length]));
 record('套件数量', counts.pdf === 23 && counts.media === 18 && counts.net === 16, 0, JSON.stringify(counts));
-record('工具总数 57', (app.tools || []).length === 57, 0, String((app.tools || []).length));
+record('套件工具 57 / 合计 75', app.suiteToolCount === 57 && app.toolCount === 75, 0, app.suiteToolCount + ' / ' + app.toolCount);
 const notFound = await fetch(BASE + '/api/not-exist');
 record('未知接口 404', notFound.status === 404, 0, 'HTTP ' + notFound.status);
 const indexRes = await fetch(BASE + '/');
