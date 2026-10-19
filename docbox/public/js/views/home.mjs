@@ -14,14 +14,10 @@ export function renderHome(app, filter) {
   }).join('');
   $('#toolSections').innerHTML = sections || '<div class="recent-empty">这个分类还没有工具。</div>';
 
-  const stats = {
-    tools: app.tools.length,
-    native: app.tools.filter((t) => !t.stirling).length,
-    stirling: app.stirling?.online ? 'v' + (app.stirling.version || '?') : '离线',
-  };
-  $('#statTools').textContent = String(stats.tools);
-  $('#statNative').textContent = String(stats.native);
-  $('#statStirling').textContent = stats.stirling;
+  $('#statTools').textContent = String(app.tools.length);
+  $('#statNative').textContent = String(app.tools.filter((t) => !t.suite).length);
+  const dbEl = $('#statDb');
+  if (dbEl) dbEl.textContent = app.db?.available ? 'MySQL' : '未连接';
   $('#toolCount').textContent = filter ? app.tools.filter((t) => t.cat === filter).length + ' 个工具' : app.tools.length + ' 个本地工具';
 
   const head = document.querySelector('#view-home .section-head');

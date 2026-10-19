@@ -34,7 +34,10 @@
         <a class="nav-item" data-nav="doc" href="#/cat/doc"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="M4 9h16M8 5v14"></path></svg></span>文档转换</a>
         <a class="nav-item" data-nav="sheet" href="#/cat/sheet"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M9 9v11"></path></svg></span>表格处理</a>
         <a class="nav-item" data-nav="ocr" href="#/cat/ocr"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3"></path><path d="M4 12h16"></path></svg></span>文字识别</a>
-        <a class="nav-item" data-nav="stirling" href="#/cat/stirling"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"></path><path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path></svg></span>Stirling 套件</a>
+        <a class="nav-item" data-nav="media" href="#/cat/media"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="2"></rect><path d="m16 10 6-3v10l-6-3z"></path></svg></span>音视频工具</a>
+        <a class="nav-item" data-nav="net" href="#/cat/net"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path><path d="M9 12l2 2 4-4"></path></svg></span>网络安全</a>
+        <div class="nav-label">记录</div>
+        <a class="nav-item" data-nav="history" href="#/history"><span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg></span>处理历史</a>
       </nav>
       <div class="side-note"><strong>纯本地处理</strong><span>文件只在本机内存与磁盘中流转，不会上传到互联网。</span></div>
       <div class="side-version">DocBox <span data-version>v0.1.0_beta</span> · Stirling-PDF v3.2.0</div>
@@ -46,7 +49,7 @@
           <div class="hero-copy">
             <span class="eyebrow">LOCAL-FIRST · 本地优先</span>
             <h1>文档与图片，<em>一站处理</em></h1>
-            <p>7 套现场工作水印与证件防滥用水印、证件照 A4 排版、图片压缩裁剪、PDF 合并拆分与页面管理、Word / Excel / Markdown 转 PDF、离线中文 OCR——全部在本机完成。</p>
+            <p>7 套现场工作水印与证件防滥用水印、证件照 A4 排版、图片压缩裁剪、<b>23 项原生 PDF 能力</b>、<b>18 项音视频处理</b>、<b>16 项网络与安全体检</b>、Word / Excel / Markdown 转 PDF、离线中文 OCR，全部在本机完成，任务自动入库 MySQL。</p>
             <div class="hero-actions">
               <a class="btn btn-primary" href="#/watermark">制作工作水印</a>
               <a class="btn btn-ghost" href="#/ocr">试试离线 OCR</a>
@@ -54,7 +57,7 @@
             <div class="hero-stats">
               <div><b id="statTools">–</b><span>全部工具</span></div>
               <div><b id="statNative">–</b><span>本地自研</span></div>
-              <div><b id="statStirling">–</b><span>Stirling-PDF</span></div>
+              <div><b id="statDb">–</b><span>本地数据库</span></div>
             </div>
           </div>
           <div class="hero-art" aria-hidden="true">
@@ -312,7 +315,8 @@
           </div>
         </div>
       </section>
-    </main>
+            <section id="view-history" class="view" hidden></section>
+      </main>
   </div>
 
   <div id="toast" class="toast"></div>

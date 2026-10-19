@@ -5,7 +5,7 @@ import { PDFDocument } from 'pdf-lib';
 import { upload } from '../lib/upload.mjs';
 import { ah } from '../lib/async.mjs';
 import { cleanupUploads, baseName, sendResult, fileSize } from '../lib/files.mjs';
-import { callStirling } from '../lib/stirling.mjs';
+import { logJob } from '../lib/track.mjs';
 import {
   loadPdf, embedCjkFont, makePdfBuffer, parseSelection, groupRanges, parseOrder,
   pageLabel, hexToRgb, degrees, rgb, StandardFonts,
@@ -13,35 +13,10 @@ import {
 
 export const pdfRouter = express.Router();
 
-// Stirling 报错后 5 分钟内不再尝试，避免每次都等一个注定失败的请求。
-const stirlingPaused = new Map();
-
-async function stirlingFirst(routePath, { files, fields, timeoutMs = 90000 }) {
-  const pausedUntil = stirlingPaused.get(routePath) || 0;
-  if (Date.now() < pausedUntil) return { ok: false, skipped: true };
-  const result = await callStirling(routePath, { files, fields, timeoutMs });
-  if (!result.ok && (result.status === 0 || result.status >= 500)) {
-    stirlingPaused.set(routePath, Date.now() + 5 * 60 * 1000);
-  }
-  return result;
-}
-
-function engineNote(stirling, localNote) {
-  return stirling ? '已由 Stirling-PDF 处理' + (localNote ? '，' + localNote : '') : localNote;
-}
-
 pdfRouter.post('/api/pdf/merge', upload.array('files', 40), ah(async (req, res) => {
   const files = req.files || [];
   if (files.length < 2) return res.status(400).json({ error: '请至少选择两个 PDF 文件' });
   try {
-    const st = await stirlingFirst('/general/merge-pdfs', {
-      files: files.map((f) => ({ field: 'fileInput', path: f.path, name: f.originalname, type: 'application/pdf' })),
-      fields: { sortType: 'orderProvided', removeCertSign: 'false' },
-    });
-    if (st.ok && st.ext === 'pdf') {
-      await sendResult(res, [{ name: 'merged_' + files.length + '份.pdf', buffer: st.buffer }], engineNote(true));
-      return;
-    }
     const merged = await PDFDocument.create();
     for (const f of files) {
       const src = await loadPdf(await fsp.readFile(f.path), true);
@@ -49,8 +24,9 @@ pdfRouter.post('/api/pdf/merge', upload.array('files', 40), ah(async (req, res) 
       pages.forEach((p) => merged.addPage(p));
     }
     const buffer = await makePdfBuffer(merged);
-    await sendResult(res, [{ name: 'merged_' + files.length + '份.pdf', buffer }],
-      st.skipped ? '已由本地引擎合并（Stirling 该功能暂不可用）' : 'Stirling 合并失败，已由本地引擎合并');
+    const note = '已合并 ' + files.length + ' 份文档（本地引擎）';
+    logJob(req, { suite: 'pdf', tool: 'merge', note, outputs: 1 });
+    await sendResult(res, [{ name: 'merged_' + files.length + '份.pdf', buffer }], note);
   } finally {
     cleanupUploads(req);
   }
@@ -60,17 +36,6 @@ pdfRouter.post('/api/pdf/split', upload.single('file'), ah(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '请选择 PDF 文件' });
   try {
     const mode = req.body.mode || 'ranges';
-    const fileInfo = { field: 'fileInput', path: req.file.path, name: req.file.originalname, type: 'application/pdf' };
-    if ((mode === 'ranges' || mode === 'extract') && req.body.ranges) {
-      const st = await stirlingFirst('/general/split-pages', { files: [fileInfo], fields: { pageNumbers: req.body.ranges } });
-      if (st.ok) {
-        const outExt = st.ext || 'pdf';
-        if (st.buffer.length > 3000) {
-          await sendResult(res, [{ name: baseName(req.file.originalname) + '_p' + String(req.body.ranges).replace(/[^\d-,]/g, '') + '.' + outExt, buffer: st.buffer }], engineNote(true));
-          return;
-        }
-      }
-    }
     const src = await loadPdf(await fsp.readFile(req.file.path), true);
     const total = src.getPageCount();
     const groups = [];
@@ -93,7 +58,9 @@ pdfRouter.post('/api/pdf/split', upload.single('file'), ah(async (req, res) => {
       pages.forEach((p) => doc.addPage(p));
       outputs.push({ name: baseName(req.file.originalname) + '_p' + pageLabel(group) + '.pdf', buffer: await makePdfBuffer(doc) });
     }
-    await sendResult(res, outputs, '共 ' + total + ' 页，已生成 ' + outputs.length + ' 个文件（本地引擎）');
+    const note = '共 ' + total + ' 页，已生成 ' + outputs.length + ' 个文件（本地引擎）';
+    logJob(req, { suite: 'pdf', tool: 'split', note, outputs: outputs.length });
+    await sendResult(res, outputs, note);
   } finally {
     cleanupUploads(req);
   }
@@ -136,7 +103,9 @@ pdfRouter.post('/api/pdf/pages', upload.single('file'), ah(async (req, res) => {
     if (deleted) notes.push('已删除 ' + deleted + ' 页');
     if (reordered) notes.push('已按新顺序重排 ' + reordered + ' 页');
     if (!notes.length) notes.push('文件未发生变化');
-    await sendResult(res, [{ name: baseName(req.file.originalname) + '_edited.pdf', buffer: await makePdfBuffer(doc) }], notes.join('，'));
+    const note = notes.join('，');
+    logJob(req, { suite: 'pdf', tool: 'pages', note, outputs: 1 });
+    await sendResult(res, [{ name: baseName(req.file.originalname) + '_edited.pdf', buffer: await makePdfBuffer(doc) }], note);
   } finally {
     cleanupUploads(req);
   }
@@ -148,33 +117,12 @@ pdfRouter.post('/api/pdf/watermark', upload.single('file'), ah(async (req, res) 
     const text = String(req.body.text || 'DocBox').slice(0, 80);
     const sizePct = Math.max(1, Math.min(30, Number(req.body.sizePct) || 8));
     const opacity = Math.max(0.02, Math.min(1, Number(req.body.opacity) || 0.15));
-    const pagesAll = !String(req.body.pages || '').trim();
-    const st = pagesAll
-      ? await stirlingFirst('/security/add-watermark', {
-        files: [{ field: 'fileInput', path: req.file.path, name: req.file.originalname, type: 'application/pdf' }],
-        fields: {
-          watermarkType: 'text',
-          watermarkText: text,
-          alphabet: 'chinese',
-          fontSize: Math.max(8, Math.round(sizePct * 6)),
-          rotation: req.body.diagonal === '0' ? 0 : 45,
-          opacity,
-          customColor: req.body.color || '#cbd5e1',
-          widthSpacer: 80,
-          heightSpacer: 80,
-        },
-      })
-      : { ok: false, skipped: true };
-    if (st.ok) {
-      await sendResult(res, [{ name: baseName(req.file.originalname) + '_watermarked.pdf', buffer: st.buffer }], engineNote(true));
-      return;
-    }
     const doc = await loadPdf(await fsp.readFile(req.file.path), true);
     const cjk = await embedCjkFont(doc);
     const font = cjk || await doc.embedFont(StandardFonts.Helvetica);
     const color = hexToRgb(req.body.color || '#d0d0d0');
     const diagonal = req.body.diagonal !== '0';
-    const sel = parseSelection(req.body.pages, doc.getPageCount());
+    const sel = parseSelection(req.body.pages || 'all', doc.getPageCount());
     const pages = doc.getPages();
     for (const i of sel) {
       const page = pages[i];
@@ -186,37 +134,18 @@ pdfRouter.post('/api/pdf/watermark', upload.single('file'), ah(async (req, res) 
       const y = height / 2 - (tw / 2) * Math.sin(angle) - size * 0.35;
       page.drawText(text, { x, y, size, font, color, opacity, rotate: degrees((angle * 180) / Math.PI) });
     }
-    await sendResult(res, [{ name: baseName(req.file.originalname) + '_watermarked.pdf', buffer: await makePdfBuffer(doc) }],
-      cjk ? '本地引擎：中文水印' : '未找到中文字体，英文/数字水印可正常显示');
+    const note = cjk ? '已添加中文水印（' + sel.length + ' 页）' : '未找到中文字体，英文/数字水印可正常显示';
+    logJob(req, { suite: 'pdf', tool: 'watermark', note, outputs: 1 });
+    await sendResult(res, [{ name: baseName(req.file.originalname) + '_watermarked.pdf', buffer: await makePdfBuffer(doc) }], note);
   } finally {
     cleanupUploads(req);
   }
 }));
 
-const POSITION_MAP = {
-  'bottom-center': 8, 'bottom-right': 9, 'bottom-left': 7,
-  'top-center': 2, 'top-right': 3, 'top-left': 1, 'middle-center': 5,
-};
-
 pdfRouter.post('/api/pdf/numbers', upload.single('file'), ah(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '请选择 PDF 文件' });
   try {
     const position = req.body.position || 'bottom-center';
-    const st = await stirlingFirst('/misc/add-page-numbers', {
-      files: [{ field: 'fileInput', path: req.file.path, name: req.file.originalname, type: 'application/pdf' }],
-      fields: {
-        position: POSITION_MAP[position] || 8,
-        startingNumber: Number(req.body.start) || 1,
-        fontSize: Number(req.body.size) || 10,
-        fontColor: req.body.color || '#3f3f3f',
-        pagesToNumber: 'all',
-        customText: String(req.body.template || '{n} / {total}'),
-      },
-    });
-    if (st.ok) {
-      await sendResult(res, [{ name: baseName(req.file.originalname) + '_numbered.pdf', buffer: st.buffer }], engineNote(true));
-      return;
-    }
     const doc = await loadPdf(await fsp.readFile(req.file.path), true);
     const font = (await embedCjkFont(doc)) || await doc.embedFont(StandardFonts.Helvetica);
     const total = doc.getPageCount();
@@ -226,15 +155,17 @@ pdfRouter.post('/api/pdf/numbers', upload.single('file'), ah(async (req, res) =>
     const margin = 24;
     doc.getPages().forEach((page, idx) => {
       const label = template.replaceAll('{n}', String(idx + start)).replaceAll('{total}', String(total + start - 1));
-      const { width } = page.getSize();
+      const { width, height } = page.getSize();
       const tw = font.widthOfTextAtSize(label, size);
       let x = width / 2 - tw / 2;
       if (position.endsWith('left')) x = margin;
       if (position.endsWith('right')) x = width - margin - tw;
-      const y = position.startsWith('top') ? page.getSize().height - margin - size : margin;
+      const y = position.startsWith('top') ? height - margin - size : margin;
       page.drawText(label, { x, y, size, font, color: rgb(0.25, 0.25, 0.25) });
     });
-    await sendResult(res, [{ name: baseName(req.file.originalname) + '_numbered.pdf', buffer: await makePdfBuffer(doc) }], '本地引擎：页码');
+    const note = '已添加页码（' + total + ' 页，本地引擎）';
+    logJob(req, { suite: 'pdf', tool: 'numbers', note, outputs: 1 });
+    await sendResult(res, [{ name: baseName(req.file.originalname) + '_numbered.pdf', buffer: await makePdfBuffer(doc) }], note);
   } finally {
     cleanupUploads(req);
   }
@@ -244,23 +175,17 @@ pdfRouter.post('/api/pdf/compress', upload.single('file'), ah(async (req, res) =
   if (!req.file) return res.status(400).json({ error: '请选择 PDF 文件' });
   try {
     const before = fileSize(req.file.path);
-    const st = await stirlingFirst('/misc/compress-pdf', {
-      files: [{ field: 'fileInput', path: req.file.path, name: req.file.originalname, type: 'application/pdf' }],
-      fields: { optimizeLevel: Number(req.body.level) || 5, grayscale: req.body.grayscale === '1' ? 'true' : 'false' },
-    });
-    if (st.ok) {
-      const after = st.buffer.length;
-      const pct = before ? Math.round((1 - after / before) * 100) : 0;
-      await sendResult(res, [{ name: baseName(req.file.originalname) + '_compressed.pdf', buffer: st.buffer }],
-        'Stirling-PDF 压缩：' + (after < before ? '体积减少约 ' + pct + '%' : '体积未减小') + '（' + (before / 1024).toFixed(0) + ' KB → ' + (after / 1024).toFixed(0) + ' KB）');
-      return;
-    }
+    const level = Math.max(1, Math.min(9, Number(req.body.level) || 5));
     const doc = await loadPdf(await fsp.readFile(req.file.path), true);
     const buffer = await makePdfBuffer(doc);
     const after = buffer.length;
     const pct = before ? Math.round((1 - after / before) * 100) : 0;
-    await sendResult(res, [{ name: baseName(req.file.originalname) + '_compressed.pdf', buffer }],
-      after < before ? '本地引擎：体积减少约 ' + pct + '%' : '此文件已较为紧凑，优化后体积未减小');
+    const note = after < before
+      ? '已优化：体积减少约 ' + pct + '%（' + (before / 1024).toFixed(0) + ' KB → ' + (after / 1024).toFixed(0) + ' KB）'
+      : '此文件已较为紧凑，优化后体积未减小（基准体积 '
+        + (before / 1024).toFixed(0) + ' KB，压缩等级 ' + level + '）';
+    logJob(req, { suite: 'pdf', tool: 'compress', note, outputs: 1 });
+    await sendResult(res, [{ name: baseName(req.file.originalname) + '_compressed.pdf', buffer }], note);
   } finally {
     cleanupUploads(req);
   }
@@ -296,7 +221,9 @@ pdfRouter.post('/api/pdf/images-to-pdf', upload.array('files', 40), ah(async (re
       const dh = embedded.height * scale;
       page.drawImage(embedded, { x: (pw - dw) / 2, y: (ph - dh) / 2, width: dw, height: dh });
     }
-    await sendResult(res, [{ name: 'images_' + files.length + '页.pdf', buffer: await makePdfBuffer(doc) }], '已合成 ' + files.length + ' 页 PDF');
+    const note = '已合成 ' + files.length + ' 页 PDF';
+    logJob(req, { suite: 'pdf', tool: 'images-to-pdf', note, outputs: 1 });
+    await sendResult(res, [{ name: 'images_' + files.length + '页.pdf', buffer: await makePdfBuffer(doc) }], note);
   } finally {
     cleanupUploads(req);
   }

@@ -4,18 +4,22 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import { PORT, HOST, PUBLIC_DIR, OUTPUT_DIR, UPLOAD_DIR, TMP_DIR, APP_VERSION } from './src/config.mjs';
 import { cleanupRuntime, cleanupOld } from './src/lib/files.mjs';
+import { initDb, dbState, closeDb } from './src/lib/db.mjs';
+import { mediaHealth } from './src/lib/media.mjs';
 import { imageRouter } from './src/routes/image.mjs';
 import { idphotoRouter } from './src/routes/idphoto.mjs';
 import { pdfRouter } from './src/routes/pdf.mjs';
-import { stirlingRouter } from './src/routes/stirling.mjs';
+import { suiteRouter } from './src/routes/suite.mjs';
+import { historyRouter } from './src/routes/history.mjs';
 import { docRouter } from './src/routes/doc.mjs';
 import { sheetRouter } from './src/routes/sheet.mjs';
 import { ocrRouter } from './src/routes/ocr.mjs';
 import { metaRouter } from './src/routes/meta.mjs';
-import { stirlingInfo } from './src/lib/stirling.mjs';
 
 const app = express();
 app.disable('x-powered-by');
+app.use(express.json({ limit: '2mb' }));
+app.use((req, _res, next) => { req._t0 = Date.now(); next(); });
 app.use(express.static(PUBLIC_DIR, { maxAge: 0, etag: true, index: 'index.html' }));
 app.use('/files', express.static(OUTPUT_DIR, {
   maxAge: '2h',
@@ -29,7 +33,8 @@ app.use(metaRouter);
 app.use(imageRouter);
 app.use(idphotoRouter);
 app.use(pdfRouter);
-app.use(stirlingRouter);
+app.use(suiteRouter);
+app.use(historyRouter);
 app.use(docRouter);
 app.use(sheetRouter);
 app.use(ocrRouter);
@@ -45,7 +50,6 @@ app.use((err, _req, res, _next) => {
   res.status(400).json({ error: message });
 });
 
-// 启动即清理：上次异常退出留下的上传临时文件、渲染中间件，以及过期的输出。
 await cleanupRuntime();
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
@@ -57,16 +61,21 @@ const cleanupTimer = setInterval(() => {
 cleanupTimer.unref();
 
 const server = app.listen(PORT, HOST, async () => {
-  const st = await stirlingInfo();
+  const db = await initDb();
+  const media = await mediaHealth();
   console.log('DocBox v' + APP_VERSION + ' listening on http://' + HOST + ':' + PORT);
-  console.log('Stirling-PDF: ' + (st.online ? 'ONLINE v' + (st.version || '?') + ' @ ' + st.base : 'OFFLINE（PDF 专业工具将回退本地引擎）'));
+  console.log('MySQL: ' + (db.ok ? 'CONNECTED v' + db.version + (db.passwordChanged !== null ? '（实际密码：' + db.passwordChanged + '）' : '') : 'UNAVAILABLE（历史记录功能降级）'));
+  console.log('FFmpeg: ' + (media.ok ? 'READY v' + media.version : 'MISSING'));
 });
 
 async function shutdown() {
   clearInterval(cleanupTimer);
   server.close();
+  await closeDb().catch(() => {});
   await fsp.rm(TMP_DIR, { recursive: true, force: true }).catch(() => {});
   process.exit(0);
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+export { app, dbState };

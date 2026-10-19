@@ -8,6 +8,20 @@ import { saveTemplate, getTemplate, removeTemplate } from '../core/store.mjs';
 
 let state = null;
 
+// 同时写入本地 MySQL（不可用时静默忽略，仅本地 localStorage 生效）
+function syncTemplate(id, values) {
+  fetch('/api/templates', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ templateId: id, name: id, spec: values }),
+  }).catch(() => {});
+}
+function syncDelete(id) {
+  fetch('/api/templates/' + encodeURIComponent(id), { method: 'DELETE' }).catch(() => {});
+}
+function saveTpl(id, values) { saveTemplate(id, values); syncTemplate(id, values); }
+function delTpl(id) { removeTemplate(id); syncDelete(id); }
+
 function defaultsOf(tpl) {
   const values = {};
   for (const f of tpl.fields) values[f.name] = f.value;
@@ -248,7 +262,7 @@ export function renderWatermark(app) {
     const btn = e.target.closest('[data-tpl]');
     if (!btn) return;
     readValues();
-    saveTemplate(state.templateId, state.values);
+    saveTpl(state.templateId, state.values);
     state.templateId = btn.dataset.tpl;
     const tpl = currentTemplate();
     state.values = { ...defaultsOf(tpl), ...(getTemplate(tpl.id) || {}) };
@@ -273,13 +287,13 @@ export function renderWatermark(app) {
 
   $('[data-save]', view).addEventListener('click', () => {
     readValues();
-    saveTemplate(state.templateId, state.values);
+    saveTpl(state.templateId, state.values);
     toast('已保存到“我的模板”（浏览器本地）');
   });
 
   $('[data-reset]', view).addEventListener('click', () => {
     const tpl = currentTemplate();
-    removeTemplate(tpl.id);
+    delTpl(tpl.id);
     state.values = defaultsOf(tpl);
     renderTplFields();
     toast('已恢复模板默认值');
@@ -289,7 +303,7 @@ export function renderWatermark(app) {
   runBtn.addEventListener('click', async () => {
     if (!list.files.length) { toast('请先选择照片', 'error'); return; }
     const spec = buildSpec();
-    saveTemplate(state.templateId, state.values);
+    saveTpl(state.templateId, state.values);
     setBusy(runBtn, true, '正在生成…');
     state.busy = true;
     hint.textContent = '正在为 ' + list.files.length + ' 张图片添加水印…';

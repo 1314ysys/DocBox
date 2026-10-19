@@ -2,18 +2,8 @@
 node_modules/
 .npm-cache/
 
-# 本地运行时（JDK / 字体 / Stirling 二进制）
-runtime/
+# 本地字体（缺失时回退系统 simhei）
 fonts/
-stirling/*.jar
-stirling/*.jar.orig
-stirling/lib/
-stirling/natives/
-stirling/logs/
-stirling/tmp/
-stirling/configs/
-stirling/*.log
-stirling/*.pid
 
 # 运行时产物
 docbox/outputs/
@@ -23,6 +13,9 @@ docbox/.cache/
 docbox/shots/
 docbox/*.log
 docbox/*.pid
+docbox/_*.mjs
+docbox/_*.pdf
+docbox/_*.png
 
 # 系统
 .DS_Store

@@ -1,4 +1,4 @@
-import { $, $$ } from './core/dom.mjs';
+import { $, $$, esc } from './core/dom.mjs';
 import { getJson } from './core/api.mjs';
 import { loadStore } from './core/store.mjs';
 import { toast } from './core/ui.mjs';
@@ -10,8 +10,9 @@ import { renderIdPhoto, cleanupIdPhoto } from './views/idphoto.mjs';
 import { renderEditor } from './views/editor.mjs';
 import { renderExtract } from './views/extract.mjs';
 import { renderOcr } from './views/ocr.mjs';
+import { renderHistory } from './views/history.mjs';
 
-const VIEWS = ['home', 'tool', 'watermark', 'idphoto', 'editor', 'extract', 'ocr'];
+const VIEWS = ['home', 'tool', 'watermark', 'idphoto', 'editor', 'extract', 'ocr', 'history'];
 let app = null;
 
 function hideViews(name) {
@@ -82,6 +83,12 @@ function route() {
     renderExtract(app);
     return;
   }
+  if (head === 'history') {
+    hideViews('history');
+    syncNav('history');
+    renderHistory(app);
+    return;
+  }
   if (head === 'ocr') {
     hideViews('ocr');
     syncNav('ocr');
@@ -127,16 +134,11 @@ async function boot() {
   }
   const ver = document.querySelector('[data-version]');
   if (ver) ver.textContent = 'v' + (app.version || '0.0.0');
-  const pill = $('#stirlingPill');
   const sb = $('#sbStatus');
-  const online = app.stirling?.online;
-  if (pill) {
-    pill.className = 'pill ' + (online ? 'pill-ok' : 'pill-warn');
-    pill.innerHTML = '<i></i>Stirling-PDF ' + (online ? 'v' + (app.stirling.version || '?') : '未启动');
-  }
+  const dbOk = Boolean(app.db?.available);
   if (sb) {
-    sb.className = 'pill ' + (online ? 'pill-ok' : 'pill-warn');
-    sb.innerHTML = '<i></i>' + (online ? '在线 · ' + app.stirlingTools.length + ' 项工具' : '离线 · 仅本地引擎');
+    sb.className = 'pill ' + (dbOk ? 'pill-ok' : 'pill-warn');
+    sb.innerHTML = '<i></i>' + (dbOk ? 'MySQL v' + esc(app.db.version || '') : '本地数据库未连接') + ' · ' + app.tools.length + ' 项工具';
   }
   wireSearch();
   wireClearRecent();

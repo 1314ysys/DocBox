@@ -593,3 +593,62 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   .wm-layout, .ocr-layout { grid-template-columns: 1fr; }
   .wm-preview-panel { position: static; }
 }
+
+
+/* ============================================================ v0.1.1 新增
+   数据处理结果、处理历史、网络工具提示 */
+.data-panel {
+  margin-top: 16px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.data-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 12px 16px;
+  border-bottom: 1px solid var(--line, #e2e8f0);
+  background: #f8fafc;
+}
+.data-head b { font-size: 14px; }
+.data-actions { display: flex; gap: 8px; }
+.data-json {
+  margin: 0; padding: 16px;
+  max-height: 520px; overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12.5px; line-height: 1.65;
+  color: #0f172a; background: #0f172a0d;
+  white-space: pre-wrap; word-break: break-word;
+}
+.net-note {
+  padding: 14px 16px; margin: 8px 0 0;
+  border-radius: 10px; background: #eff6ff; color: #1d4ed8;
+  font-size: 13px;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.chip {
+  border: 1px solid var(--line, #e2e8f0); background: #fff;
+  border-radius: 999px; padding: 5px 14px; font-size: 13px;
+  cursor: pointer; color: #334155;
+}
+.chip.active { background: #0f172a; border-color: #0f172a; color: #fff; }
+.hist-wrap { overflow: auto; }
+.hist-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.hist-table th, .hist-table td {
+  padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line, #e2e8f0);
+  white-space: nowrap;
+}
+.hist-table td:nth-child(5) { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+.hist-table th { background: #f8fafc; font-weight: 600; color: #475569; }
+.hist-table tbody tr:hover { background: #f8fafc; }
+.hist-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  background: #eef2ff; color: #4338ca; font-size: 12px;
+}
+.ok-dot, .fail-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 6px; vertical-align: middle;
+}
+.ok-dot { background: #16a34a; }
+.fail-dot { background: #dc2626; }
+.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #64748b; }

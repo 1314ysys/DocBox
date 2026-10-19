@@ -7,6 +7,15 @@ import { toast, setBusy } from '../core/ui.mjs';
 
 export function renderTool(app, tool) {
   const view = $('#view-tool');
+  const needsFile = Boolean(tool.accept);
+  const isData = tool.mode === 'data' || tool.mode === 'upload-data';
+  const showFile = needsFile || tool.mode === 'upload-data';
+  let step = 1;
+  const fileStep = showFile ? step++ : null;
+  const fieldStep = tool.fields?.length ? step++ : null;
+  const fieldGrid = tool.fields?.length
+    ? '<div class="panel-title"><h2>' + fieldStep + '. 设置参数</h2></div><div class="field-grid" data-fields></div>'
+    : '';
   view.innerHTML = `
     <div class="tool-head">
       <a class="back" href="#/">← 返回全部工具</a>
@@ -17,63 +26,85 @@ export function renderTool(app, tool) {
     </div>
     <div class="workspace">
       <div class="panel">
-        <div class="panel-title"><h2>1. 选择文件</h2><span data-hint>${tool.multiple ? '可多选，拖动排序' : '一次一个文件'}</span></div>
-        <div data-files></div>
-        <div data-extra hidden></div>
-        ${tool.fields?.length ? '<div class="panel-title"><h2>2. 设置参数</h2></div><div class="field-grid" data-fields></div>' : ''}
+        ${showFile ? '<div class="panel-title"><h2>' + fileStep + '. 选择文件</h2><span data-hint>' + esc(tool.filesHint || (tool.multiple ? '可多选，拖动排序' : '一次一个文件')) + '</span></div><div data-files></div><div data-extra hidden></div>' : ''}
+        ${fieldGrid}
+        ${!showFile && !tool.fields?.length ? '<div class="net-note">该工具无需文件与参数，直接点击开始即可。</div>' : ''}
         <div class="run-bar">
-          <button class="btn btn-primary" data-run>开始处理</button>
+          <button class="btn btn-primary" data-run>${isData ? '开始检测' : '开始处理'}</button>
           <span class="run-hint" data-runhint></span>
         </div>
         <div class="results" data-results hidden></div>
+        <div class="data-panel" data-data hidden>
+          <div class="data-head">
+            <b data-data-title>检测结果</b>
+            <div class="data-actions">
+              <button class="btn btn-ghost btn-sm" data-copy>复制 JSON</button>
+              <button class="btn btn-ghost btn-sm" data-save>下载 JSON</button>
+            </div>
+          </div>
+          <pre class="data-json" data-json></pre>
+        </div>
       </div>
     </div>
   `;
 
   const filesBox = $('[data-files]', view);
-  const extraBox = $('[data-extra]', view);
   const fieldsBox = $('[data-fields]', view);
   const results = $('[data-results]', view);
+  const dataPanel = $('[data-data]', view);
+  const dataJson = $('[data-json]', view);
   const runBtn = $('[data-run]', view);
   const hint = $('[data-runhint]', view);
+  let currentData = null;
 
-  const list = createFileList(filesBox, {
-    multiple: Boolean(tool.multiple),
-    accept: tool.accept || '*/*',
-    onChange: () => { clearResults(results); },
-  });
+  const list = filesBox
+    ? createFileList(filesBox, { multiple: Boolean(tool.multiple), accept: tool.accept || '*/*', onChange: () => { clearResults(results); dataPanel.hidden = true; } })
+    : null;
   if (fieldsBox) renderFields(fieldsBox, tool.fields || []);
 
-  let extra = null;
-  if (tool.extraFiles?.length) {
-    const spec = tool.extraFiles[0];
-    extraBox.hidden = false;
-    extraBox.innerHTML = '<div class="panel-title"><h2>' + esc(spec.label || '附加文件') + '</h2><span>' + esc(spec.hint || '可选') + '</span></div><div data-extra-files></div>';
-    extra = createFileList($('[data-extra-files]', extraBox), { multiple: true, accept: spec.accept || '*/*' });
-  }
+  $('[data-copy]', view).addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(JSON.stringify(currentData, null, 2)); toast('已复制 JSON'); }
+    catch { toast('复制失败，请手动选择文本', 'error'); }
+  });
+  $('[data-save]', view).addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(currentData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = tool.id + '-' + Date.now() + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  });
 
   runBtn.addEventListener('click', async () => {
-    const files = list.files;
-    const min = tool.minFiles || 1;
-    if (files.length < min) { toast('请至少选择 ' + min + ' 个文件', 'error'); return; }
+    const files = list ? list.files : [];
+    if (showFile && !files.length) { toast('请先选择文件', 'error'); return; }
+    const min = tool.minFiles || 0;
+    if (showFile && files.length < Math.max(1, min)) { toast('请至少选择 ' + Math.max(1, min) + ' 个文件', 'error'); return; }
     const fields = { ...(tool.fixed || {}), ...(fieldsBox ? readFields(fieldsBox, tool.fields) : {}) };
-    const payload = files.map((f) => ({ field: tool.field === 'file' ? 'file' : tool.field, file: f, name: f.name }));
-    if (extra && extra.files.length) {
-      const spec = tool.extraFiles[0];
-      payload.push(...extra.files.map((f) => ({ field: spec.field, file: f, name: f.name })));
-    }
+    const payload = files.map((f) => ({ field: 'files', file: f, name: f.name }));
     setBusy(runBtn, true);
-    hint.textContent = tool.stirling ? '正在调用 Stirling-PDF…' : '正在本地处理…';
+    hint.textContent = '正在处理…';
+    clearResults(results);
+    dataPanel.hidden = true;
     try {
       const data = await postForm(tool.endpoint, { files: payload, fields });
-      renderResults(results, data, tool.name);
-      hint.textContent = data.note || '';
-      toast('处理完成');
+      if (data.data) {
+        currentData = { tool: tool.name, note: data.note, ...data.data };
+        dataJson.textContent = JSON.stringify(currentData, null, 2);
+        $('[data-data-title]', view).textContent = (tool.name || '结果') + ' · ' + new Date().toLocaleString();
+        dataPanel.hidden = false;
+        hint.textContent = data.note || '';
+        toast('完成');
+      } else {
+        renderResults(results, data, tool.name);
+        hint.textContent = data.note || '';
+        toast('处理完成');
+      }
     } catch (err) {
-      toast(err.message, 'error', 5000);
+      toast(err.message, 'error', 6000);
       hint.textContent = '';
     } finally {
-      setBusy(runBtn, false, '开始处理');
+      setBusy(runBtn, false, isData ? '开始检测' : '开始处理');
     }
   });
 }

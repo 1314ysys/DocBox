@@ -1,4 +1,4 @@
-﻿# 停止 DocBox 与 Stirling-PDF 本地服务
+﻿# 停止 DocBox 本地服务（v0.1.1 起不再有 Stirling-PDF 8090 端口）
 $ErrorActionPreference = 'SilentlyContinue'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $Root
@@ -23,6 +23,19 @@ function Stop-Managed([string]$Name, [string]$PidFile, [string]$Match) {
 }
 
 Stop-Managed 'DocBox' "$Root\docbox\server.pid" 'server.mjs'
-Stop-Managed 'Stirling-PDF' "$Root\stirling\stirling.pid" 'Stirling-PDF'
+
+# 兼容旧版本遗留的 Stirling-PDF（0.1.0 及以前）
+$legacyPid = "$Root\stirling\stirling.pid"
+if (Test-Path $legacyPid) {
+    $procId = (Get-Content $legacyPid | Select-Object -First 1)
+    if ($procId) {
+        $p = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
+        if ($p -and $p.CommandLine -like '*Stirling-PDF*') {
+            Stop-Process -Id $procId -Force
+            Write-Host "[停止] 遗留 Stirling-PDF PID=$procId" -ForegroundColor Yellow
+        }
+    }
+    Remove-Item $legacyPid -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host "完成。" -ForegroundColor Green

@@ -2,11 +2,12 @@ const FIELD = (name, label, type, extra = {}) => ({ name, label, type, ...extra 
 
 export const CATS = {
   image: { name: '图片', desc: '压缩 · 转换 · 尺寸 · 水印 · 证件照 · 合成 PDF', icon: 'image' },
-  pdf: { name: 'PDF', desc: '合并 · 拆分 · 页面 · 水印 · 页码 · 压缩', icon: 'pages' },
+  pdf: { name: 'PDF', desc: '合并拆分 · 页面组织 · 加密 · 提取 · 信息', icon: 'pages' },
   doc: { name: '文档', desc: 'Word / Markdown / HTML / Excel 与 PDF 互转', icon: 'doc' },
   sheet: { name: '表格', desc: 'Excel / CSV / JSON 互转', icon: 'sheet' },
   ocr: { name: '文字识别', desc: '图片与 PDF 的离线 OCR（中文）', icon: 'scan' },
-  stirling: { name: 'Stirling 专业套件', desc: '进阶 PDF 能力，由本地 Stirling-PDF 提供', icon: 'stirling' },
+  media: { name: '音视频', desc: '转码 · 压缩 · 剪辑 · 合并 · GIF · 提音 · 水印', icon: 'video' },
+  net: { name: '网络安全', desc: '连通性 · 端口 · DNS · 证书 · 配置审计 · 信息收集', icon: 'shield' },
 };
 
 export const NATIVE_TOOLS = [
@@ -46,7 +47,7 @@ export const NATIVE_TOOLS = [
   { id: 'idphoto', cat: 'image', name: '证件照排版', icon: 'portrait', badge: '本地', route: '#/idphoto', desc: '1 寸 / 2 寸 / 护照等 10 种规格，A4 排版可直接打印' },
   {
     id: 'img-to-pdf', cat: 'image', name: '图片合成 PDF', icon: 'imagePdf', badge: '本地',
-    desc: '把多张图片按顺序合成 PDF，自动适配方向',
+    desc: '按顺序把多张图片合成 PDF，自动适配方向',
     accept: 'image/*', multiple: true, endpoint: '/api/pdf/images-to-pdf', field: 'files',
     fields: [
       FIELD('pageSize', '页面尺寸', 'select', { value: 'A4', options: [['A4', 'A4'], ['Letter', 'Letter'], ['A3', 'A3'], ['fit', '跟随图片尺寸']] }),
@@ -55,7 +56,7 @@ export const NATIVE_TOOLS = [
     ],
   },
   {
-    id: 'pdf-merge', cat: 'pdf', name: 'PDF 合并', icon: 'merge', badge: 'Stirling 优先',
+    id: 'pdf-merge', cat: 'pdf', name: 'PDF 合并', icon: 'merge', badge: '本地',
     desc: '按列表顺序合并多个 PDF',
     accept: 'application/pdf', multiple: true, endpoint: '/api/pdf/merge', field: 'files', minFiles: 2,
   },
@@ -81,7 +82,7 @@ export const NATIVE_TOOLS = [
     ],
   },
   {
-    id: 'pdf-watermark', cat: 'pdf', name: 'PDF 水印', icon: 'watermark', badge: 'Stirling 优先',
+    id: 'pdf-watermark', cat: 'pdf', name: 'PDF 水印', icon: 'watermark', badge: '本地',
     desc: '给 PDF 叠加文字水印，支持中文与页面范围',
     accept: 'application/pdf', multiple: false, endpoint: '/api/pdf/watermark', field: 'file',
     fields: [
@@ -94,7 +95,7 @@ export const NATIVE_TOOLS = [
     ],
   },
   {
-    id: 'pdf-numbers', cat: 'pdf', name: '添加页码', icon: 'tag', badge: 'Stirling 优先',
+    id: 'pdf-numbers', cat: 'pdf', name: '添加页码', icon: 'tag', badge: '本地',
     desc: '批量插入“第 n 页 / 共 m 页”页码',
     accept: 'application/pdf', multiple: false, endpoint: '/api/pdf/numbers', field: 'file',
     fields: [
@@ -106,13 +107,10 @@ export const NATIVE_TOOLS = [
     ],
   },
   {
-    id: 'pdf-compress', cat: 'pdf', name: 'PDF 压缩', icon: 'compress', badge: 'Stirling 优先',
-    desc: '用 Stirling 压缩图像与结构，减小体积',
+    id: 'pdf-compress', cat: 'pdf', name: 'PDF 压缩', icon: 'compress', badge: '本地',
+    desc: '重写文档结构并优化对象存储，减小体积',
     accept: 'application/pdf', multiple: false, endpoint: '/api/pdf/compress', field: 'file',
-    fields: [
-      FIELD('level', '压缩强度', 'range', { min: 1, max: 9, value: 5, suffix: '' }),
-      FIELD('grayscale', '转为灰度', 'checkbox', { value: '1', checked: false }),
-    ],
+    fields: [FIELD('level', '压缩强度', 'range', { min: 1, max: 9, value: 5 })],
   },
   { id: 'pdf-extract', cat: 'pdf', name: 'PDF 拆解导出', icon: 'eye', badge: '前端', route: '#/extract', desc: '导出页面图片、提取文字、查看页数' },
   { id: 'ocr', cat: 'ocr', name: 'OCR 文字识别', icon: 'scan', badge: '离线', route: '#/ocr', desc: '图片识别与 PDF 整本识别，支持导出 TXT' },
@@ -146,31 +144,41 @@ export const NATIVE_TOOLS = [
   },
 ];
 
+const SKIP_SUITE = new Set(['pdf-split', 'pdf-img2pdf']);
+
 export function buildCatalog(app) {
   const tools = NATIVE_TOOLS.map((t) => ({ ...t }));
-  const stirlingTools = (app.stirlingTools || []).map((t) => ({
-    id: t.id,
-    cat: 'stirling',
-    name: t.name,
-    desc: t.desc,
-    icon: t.icon || 'stirling',
-    badge: 'Stirling',
-    accept: t.accept || '*/*',
-    multiple: Boolean(t.multiple),
-    endpoint: '/api/stirling/' + t.id,
-    field: t.multiple ? (t.fileField || 'fileInput') : (t.fileField || 'fileInput'),
-    fields: (t.fields || []).map((f) => ({
-      name: f.name,
-      label: f.label,
-      type: f.type || 'text',
-      value: f.type === 'checkbox' ? 'true' : (f.value ?? ''),
-      checked: f.type === 'checkbox' ? Boolean(f.checked) : undefined,
-      min: f.min, max: f.max, step: f.step, suffix: f.suffix,
-      options: f.options,
-      placeholder: f.placeholder,
-    })),
-    extraFiles: t.extraFiles,
-    stirling: true,
-  }));
-  return { tools: tools.concat(stirlingTools), stirlingTools, cats: CATS };
+  const used = new Set(tools.map((t) => t.id));
+  const suiteTools = [];
+  for (const suite of ['pdf', 'media', 'net']) {
+    for (const t of app.suites?.[suite] || []) {
+      if (SKIP_SUITE.has(t.id) || used.has(t.id)) continue;
+      used.add(t.id);
+      suiteTools.push({
+        id: t.id,
+        cat: suite,
+        name: t.name,
+        desc: t.desc,
+        icon: t.icon || suite,
+        badge: t.badge || (suite === 'media' ? 'FFmpeg' : suite === 'net' ? '本地探测' : '本地引擎'),
+        accept: t.accept || null,
+        multiple: Boolean(t.multiple),
+        endpoint: '/api/suite/' + suite + '/' + t.id.replace(new RegExp('^' + suite + '-'), ''),
+        field: 'files',
+        mode: t.mode || 'file',
+        minFiles: t.multiple ? 1 : 0,
+        fields: (t.fields || []).map((f) => ({
+          name: f.name,
+          label: f.label,
+          type: f.type || 'text',
+          value: f.type === 'checkbox' ? 'true' : (f.value ?? ''),
+          checked: f.type === 'checkbox' ? Boolean(f.checked) : undefined,
+          min: f.min, max: f.max, step: f.step, suffix: f.suffix, options: f.options, placeholder: f.placeholder, hint: f.hint,
+        })),
+        filesHint: t.filesHint,
+        suite: suite,
+      });
+    }
+  }
+  return { tools: tools.concat(suiteTools), cats: CATS, suiteTools };
 }

@@ -1,193 +1,120 @@
-# 文档百宝箱 · DocBox
+# DocBox · 本地文档工具箱
 
-**版本：0.1.0_beta** · 本地优先（local-first）的图片 / 文档 / PDF / OCR 工作台。
-全部处理都在本机完成：浏览器只负责界面与预览，服务端用 Node + Sharp + pdf-lib + tesseract.js 落地，进阶 PDF 能力由本地部署的 **Stirling-PDF 3.2.0** 提供。
+**单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
+所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-```
-浏览器  http://127.0.0.1:3000        DocBox 界面（自研）
-服务    http://127.0.0.1:3000/api/*  DocBox 接口
-套件    http://127.0.0.1:8090        Stirling-PDF（本地 Spring Boot，可选）
-```
+`v0.1.1` · 75 个工具 · 7 大分类 · 239 项冒烟断言全通过
 
 ---
 
-## 1. 快速开始
+## 0.1.1 有什么变化
+
+- **彻底移除 Stirling-PDF**：不再有 8090 端口、不再需要 JDK 25、`stirling/` 与 `runtime/`（约 1.7 GB）已删除。原 Stirling 的能力全部改写为原生实现，直接跑在 DocBox 的 3000 端口上。
+- **新增音视频套件（18 项）**：基于 ffmpeg 的转码、压缩、剪辑、合并、GIF、抽帧、提音、变速、音量、静音、旋转、水印、图片转视频、淡入淡出、元数据清除。
+- **新增网络安全套件（16 项）**：端口扫描、DNS、ping/traceroute、响应头审计、TLS 证书、RDAP、跳转链、耗时分解、目录探测、方法探测、服务指纹、本机网络、子域枚举、安全配置生成、IP 归属。
+- **新增 23 项原生 PDF 能力**：旋转、删页、重排、裁剪、缩放、多页合一、小册子、拆分、叠加、长页拼接、解压、扁平化、去空白页、加密、解密、清理、读写元数据、PDF→图片/文字、图片提取、图片转 PDF、书签。
+- **本地 MySQL 落库**：`jobs`（处理历史）、`templates`（水印模板）、`net_reports`（安全报告）、`settings`（偏好）；数据库不可用时自动降级，其余功能照常。
+- **前端新增**：音视频 / 网络安全两个分类页、检测结果 JSON 面板（复制 / 下载）、`#/history` 处理历史页（筛选 / 清空）。
+
+## 快速开始
+
+前置：Windows 10/11、**Node.js ≥ 20**（已验证 v24.20）、本机装有 Edge（文档转 PDF 用）。  
+MySQL 8.x 可选：没有也能用，只是「处理历史」不可用。
 
 ```powershell
-# 一次性启动 Stirling-PDF（可选）+ DocBox，并打开浏览器
-.\start-all.ps1
-
-# 只启动 DocBox
 cd docbox
 npm install          # 首次
-npm start            # node --max-old-space-size=1536 --max-semi-space-size=16 server.mjs
-
-# 停止
-.\stop-all.ps1
+cd ..
+.\start-all.ps1      # 启动（会顺带拉起 MySQL 服务并打开浏览器）
 ```
 
-- 需要 Node.js ≥ 20、Windows（文档转 PDF 依赖本机 Edge 的 `--print-to-pdf`）。
-- Stirling-PDF 需要 `runtime/jdk-25*`（JAR 用 Java 25 编译）与 `stirling/Stirling-PDF.jar`；缺失时 DocBox 仍可独立工作，只是“Stirling 套件”分类不可用。
-- 首次启动会自动清理：残留上传临时文件、渲染中间目录、超过 6 小时的输出。
+打开 <http://127.0.0.1:3000/>，停止用 `.\stop-all.ps1`。
 
----
-
-## 2. 能力总览（43 项）
-
-### 2.1 自研工具（20 项）
-
-| 分类 | 工具 | 说明 |
-| --- | --- | --- |
-| 图片 | 图片压缩 | 批量压缩，质量 / 最大宽度可调，显示体积变化 |
-| 图片 | 格式转换 | PNG / JPG / WebP / AVIF / TIFF 互转 |
-| 图片 | 尺寸调整 | 等比适配、裁切填充、拉伸、留白 |
-| 图片 | **工作水印 / 全图水印** | 7 套模板（见第 3 节），实时预览、批量套用、参数可保存 |
-| 图片 | 图片编辑 | 裁剪、旋转、翻转、缩放、亮度/对比度/饱和度、文字水印、导出 PNG/JPG/WebP |
-| 图片 | 证件照排版 | 10 种规格 + 户口本整页，A4 300dpi 排版、裁剪虚线、PDF/PNG 输出、相机拍照 |
-| 图片 | 图片合成 PDF | 多图合成，A4/Letter/A3/跟随图片，自动方向 |
-| PDF | 合并 / 拆分 / 页面管理 | 合并优先走 Stirling，失败自动回退本地；拆分支持范围、提取、每 N 页、逐页 |
-| PDF | PDF 水印 / 添加页码 / PDF 压缩 | 优先 Stirling-PDF，失败自动回退本地引擎 |
-| PDF | PDF 拆解导出 | 前端 PDF.js 渲染，逐页导出图片（ZIP）或提取文字（TXT） |
-| 文档 | 文档转 PDF | .docx / .md / .html / .txt / .csv / .xlsx → PDF（本机 Edge 打印） |
-| 文档 | Word 转 HTML / 转 Markdown | mammoth + turndown |
-| 表格 | 表格格式转换 / 转 JSON | Excel ⇄ CSV ⇄ JSON，多工作表自动拆分 |
-| 识别 | **OCR 文字识别** | 图片批量 + 整本 PDF，离线中文（chi_sim） |
-
-### 2.2 Stirling-PDF 套件（23 项，本地 8090）
-
-页面组织：旋转、删除页面、重排页面、裁剪、缩放/改纸、多页拼版(N-up)、小册子、按章节拆分
-页面增强：叠加 PDF、单页化、解压（去重压缩流）、扁平化表单、移除空白页
-安全：加密、解密、脱敏清理、元数据编辑、文档信息
-转换：PDF → 图片、PDF → 文本、提取内嵌图片、图片 → PDF、提取书签
-
-> 说明：Stirling 的合并 / 拆分（`merge-pdfs`、`split-pages`）依赖 jpdfium 原生库，官方 JAR 只带 linux-x64 二进制，Windows 下会抛 `NativeNotFoundException`，因此这两项在 DocBox 中始终自动回退本地 pdf-lib 引擎，界面会明确标注“已由本地引擎合并/拆分”。
-
----
-
-## 3. 七套水印模板
-
-前端模板、服务端渲染、字段定义共用同一份清单：`docbox/src/watermark-templates.mjs`，通过 `GET /api/watermark/templates` 下发。
-
-| ID | 模板 | 主色 | 关键字段 | 典型场景 |
-| --- | --- | --- | --- | --- |
-| `construction` | 建筑施工 | `#0b64d6` | 企业/项目名、施工区域、施工内容、拍摄时间、地点、GPS、备注 | 工程现场留痕 |
-| `sales` | 销售外勤 | `#f97316` | 打卡时间、日期星期、客户单位、拜访事项、地点、天气 | 外勤拜访打卡 |
-| `property` | 物业管理 | `#2f7fa8` | 时段（自动/早晨/上午…）、项目小区、楼栋部位、巡检项 | 物业巡检 |
-| `hotel` | 酒店餐饮 | `#3b82f6` | 打卡时间、门店包厢、餐次、地点 | 门店/餐饮打卡 |
-| `logistics` | 快递物流 | `#2f9fd0` | 运单号、派件人、状态、地点 | 派件签收 |
-| `sanitation` | 环境卫生 | `#f07850` | 责任区域、责任人、检查结果、地点 | 环卫/保洁检查 |
-| `docfull` | 透明全图水印 | `#e11d48` | 多行文字、方向（-90°~90°）、透明度（4%~70%）、行间距、字号、颜色、平铺/单条 | 证件照、身份证复印件的防 misuse 水印 |
-
-- 信息卡：深色渐变圆角卡（#0f172a→#020617）+ 左侧主色竖条，行式布局（品牌 / 大号时间 / 日期星期+天气 / 定位点 + 地点 / 键值行 / 备注）。
-- 透明水印：按“行间距”把整块文字铺满全图（不是只铺一个瓦片），支持每行错位与任意角度旋转。
-- 参数持久化：每个模板的填写内容自动存在 `localStorage`（`docbox.watermark.templates.v1`），“恢复到默认值”可清除。
-- 证件水印提供 4 个常用预设：居住证 / 入职 / 贷款 / 身份证复印件。
-
----
-
-## 4. 离线 OCR
-
-- 引擎：`tesseract.js` v7 + `@tesseract.js-data/chi_sim`（本地语言包 `4.0.0/chi_sim.traineddata.gz`，**不联网**）。
-- 架构：OCR 跑在**独立子进程**（`src/ocr-worker.mjs`），识别结束即退出，主服务不常驻 WASM 内存；请求串行排队，避免并发抢内存。
-- 能力：图片批量识别（单次 ≤ 40 张）、整本 PDF 识别（前端渲染成图 → 分批提交）、置信度与字数、TXT 导出、自动合并中文字符间多余空格。
-- 准确度参考：清晰截图 90%+；手写、倾斜、低分辨率会明显下降。
-
----
-
-## 5. 目录结构
-
-```
-temp_file_edit/
-├─ docbox/                     DocBox 主服务
-│  ├─ server.mjs               Express 入口（静态资源 + 路由 + 启动清理 + 优雅退出）
-│  ├─ src/
-│  │  ├─ config.mjs            端口 / 路径 / 字体 / Edge / Stirling 地址 / 版本号
-│  │  ├─ watermark-templates.mjs  7 套水印模板（前后端唯一事实来源）
-│  │  ├─ stirling-tools.mjs    23 项 Stirling 工具清单（代理白名单）
-│  │  ├─ ocr-worker.mjs        tesseract 子进程
-│  │  ├─ lib/                  files / pdfkit / html2pdf / stirling / watermark / ocr / upload / async
-│  │  └─ routes/               image / idphoto / pdf / stirling / doc / sheet / ocr / meta
-│  ├─ public/
-│  │  ├─ index.html            视图骨架（home / tool / watermark / idphoto / editor / extract / ocr）
-│  │  ├─ styles.css
-│  │  ├─ js/
-│  │  │  ├─ main.mjs           哈希路由 + 启动
-│  │  │  ├─ core/              dom / api / ui / store / files(拖拽排序) / fields / results
-│  │  │  ├─ tools/catalog.mjs  自研 20 项 + Stirling 23 项，统一成同一套卡片与表单
-│  │  │  └─ views/             home / tool / watermark / idphoto / editor / extract / ocr
-│  │  └─ vendor/               pdf.js、jszip（前端本地依赖）
-│  ├─ scripts/smoke.mjs        33 项接口冒烟测试
-│  └─ testdata/                样例文件
-├─ version/                    版本控制目录（0.1.0_beta 基线）
-├─ stirling/                   Stirling-PDF JAR、配置、日志（不进 git）
-├─ runtime/                    JDK 21 / 25（不进 git）
-├─ fonts/                      CJK 字体回退（不进 git）
-├─ start-all.ps1 / stop-all.ps1
-└─ README.md
-```
-
----
-
-## 6. HTTP 接口
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/app` | 一次性返回版本、Stirling 状态、7 套水印模板、23 项 Stirling 工具、证件照规格 |
-| GET | `/api/health` | 健康检查（含 Stirling 在线状态、字体/Edge 能力） |
-| GET | `/api/watermark/templates` | 水印模板清单 |
-| POST | `/api/image/watermark-template` | 生成水印图（`?preview=1` 只处理首张） |
-| POST | `/api/image/process` | 压缩 / 转换 / 缩放 |
-| POST | `/api/image/info` | 读取图片尺寸与体积 |
-| POST | `/api/idphoto/sheet` | 证件照 A4 排版（PDF / PNG） |
-| GET | `/api/idphoto/presets` | 证件照规格 |
-| POST | `/api/pdf/merge`、`/split`、`/pages`、`/watermark`、`/numbers`、`/compress`、`/images-to-pdf` | PDF 系列（能走 Stirling 的优先走 Stirling） |
-| POST | `/api/doc/to-pdf`、`/docx-to-html`、`/to-markdown` | 文档转换 |
-| POST | `/api/sheet/convert`、`/to-json` | 表格转换 |
-| POST | `/api/ocr/image`、`/ocr/batch` | 图片 OCR |
-| GET | `/api/stirling/tools`、`/status` | 套件清单与状态 |
-| POST | `/api/stirling/:id` | Stirling 代理（按清单白名单校验，自动补默认参数、映射导出扩展名） |
-
-响应约定：`{"ok":true,"files":[{name,size,url,kind}],"note":"..."}`；多文件时自动打包 ZIP；失败返回 `{"error":"..."}`。
-
----
-
-## 7. 配置与数据
-
-- 端口：DocBox `3000`，Stirling `8090`（`src/config.mjs`）。
-- 单文件上限 200MB，单次最多 40 个文件。
-- 输出目录 `docbox/outputs/<随机id>/`，6 小时后自动清理；上传中转文件 1 小时、渲染中间件 2 小时。
-- 文档转 PDF 统一使用 `docbox/tmp/edge-profile`（单一 Edge profile，避免残留多份用户数据目录）。
-- 隐私：不访问外网；OCR 语言包、PDF.js、JSZip 全部本地。
-
----
-
-## 8. 测试
+也可以手动跑：
 
 ```powershell
 cd docbox
-npm run smoke        # 33 项：7 套水印 + OCR + 图片 + PDF + 证件照 + 文档 + 表格 + Stirling
+npm start            # node --max-old-space-size=1536 server.mjs
+npm run smoke        # 86 项冒烟检查（需服务已启动）
 ```
 
-冒烟测试覆盖每个接口的状态码与产物（样例在 `docbox/testdata`），失败会以非 0 退出码结束，可直接接 CI。
+## 本地数据库
 
----
+服务启动时自动连接并建库建表，**无需手动执行 SQL**：
 
-## 9. 已知限制
+| 项 | 值 |
+| --- | --- |
+| 地址 | `127.0.0.1:3306` |
+| 数据库 | `docbox`（不存在会自动创建） |
+| 账号 / 密码 | `root` / `root`（本机实测：MySQL 8.4.3，`root@localhost`） |
+| 字符集 | `utf8mb4` / `utf8mb4_0900_ai_ci` |
 
-1. **Windows 下的 Stirling 合并/拆分**：jpdfium 缺少 windows-x64 原生库（`UnsatisfiedLinkError`），DocBox 已内置本地回退，功能不受影响，只是性能略低。
-2. **Stirling 已禁用项**：OCR、PDF→Word/Excel、PDF/A、修复、自动脱敏、扫描件特效（依赖缺失或返回 5xx）。
-3. **文档转 PDF 依赖 Edge**：没有 Edge 时该功能返回明确错误，其余功能不受影响。
-4. **中文水印字体**：优先 `fonts/simhei.ttf`，回退系统 `C:/Windows/Fonts/simhei.ttf`；都没有时 PDF 中文水印会提示字体缺失（PNG 水印走系统字体，不受影响）。
-5. OCR 对倾斜 / 手写 / 低分辨率图片的识别率有限。
+密码按 `DB_PASSWORD` → 空 → `root` → `123456` → `mysql` → `password` 依次尝试，成功后写回配置状态；全部失败时服务仍正常启动，只是历史相关接口返回「数据库不可用」。
 
----
+可通过环境变量覆盖：`DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME`。
 
-## 10. 版本
+表结构：
 
-- 当前基线：`0.1.0_beta`，详见 [version/0.1.0_beta/VERSION.json](version/0.1.0_beta/VERSION.json) 与 [CHANGELOG](version/0.1.0_beta/CHANGELOG.md)。
-- 版本目录 `version/` 保存每个发布基线的元数据与变更说明；`git tag v0.1.0_beta` 对应本次基线提交。
+- `jobs(id, suite, tool, status, duration_ms, input, output, note, error, created_at)` — 每次处理一行
+- `templates(template_id, name, spec JSON, updated_at)` — 水印模板（前端保存时同步）
+- `net_reports(id, tool, target, summary JSON, created_at)` — 网络体检结论
+- `settings(k, v, updated_at)` — 偏好键值
 
-## 11. 致谢与许可
+> 想换库名/密码，改 `docbox/src/config.mjs` 的 `DB` 或设环境变量即可。
 
-- DocBox 自研代码：MIT。
-- [Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF)（MIT）提供进阶 PDF 能力；[pdf.js](https://mozilla.github.io/pdf.js/)（Apache-2.0）、[JSZip](https://stuk.github.io/jszip/)（MIT/GPLv3 双许可）、[pdf-lib](https://pdf-lib.js.org/)（MIT）、[Sharp](https://sharp.pixelplumbing.com/)（Apache-2.0）、[tesseract.js](https://github.com/naptha/tesseract.js)（Apache-2.0）。
+## 工具清单（75 项）
+
+| 分类 | 数量 | 代表能力 |
+| --- | --- | --- |
+| 图片 | 7 | 压缩、格式转换（含 AVIF）、尺寸调整、7 套水印、图片编辑、证件照 A4 排版、图片合成 PDF |
+| PDF（自研基础） | 7 | 合并、拆分、页面管理、PDF 水印、页码、压缩、拆解导出 |
+| PDF（原生套件） | 21 | 旋转 / 删页 / 重排 / 裁剪 / 缩放 / 多页合一 / 小册子 / 叠加 / 长页 / 解压 / 扁平化 / 去空白 / 加密(AES-256) / 解密 / 清理 / 元数据读写 / PDF→图片 / PDF→文字 / 图片提取 / 图片转 PDF / 书签 |
+| 文档 | 3 | Word / Markdown / HTML / Excel / CSV → PDF，`.docx` → HTML / Markdown |
+| 表格 | 2 | Excel ⇄ CSV ⇄ JSON、多工作表拆分 |
+| 文字识别 | 1 | 图片 + 整本 PDF 的离线中文 OCR（tesseract.js v7 + chi_sim） |
+| 音视频 | 18 | 转码、压缩、提取音轨、音频转码、截取、合并、GIF、抽帧、缩放、变速、响度、静音、旋转、水印、图片轮播、淡入淡出、探明信息、清元数据 |
+| 网络安全 | 16 | 端口扫描（64 并发/顶 1000 端口）、DNS、ping、traceroute、响应头评级、TLS 证书、RDAP、跳转链、耗时、目录探测、方法探测、服务指纹、本机网络、子域枚举、安全配置生成、IP 归属 |
+
+## 目录结构
+
+```
+docbox/
+  server.mjs               # Express 5 入口（唯一进程、唯一端口 3000）
+  src/
+    config.mjs             # 端口/路径/DB/ffmpeg 路径/版本号
+    tool-catalog.mjs       # 57 条套件工具元数据（PDF 23 / 音视频 18 / 网络 16）
+    lib/
+      db.mjs               # mysql2 连接池 + 建表 + jobs/templates/reports/settings
+      pdfops.mjs           # 23 项原生 PDF 实现
+      pdf-render.mjs       # pdfjs + @napi-rs/canvas 渲染
+      media.mjs            # ffmpeg/ffprobe 封装（18 项）
+      netprobe.mjs         # 网络探测（16 项，纯 Node 实现）
+      track.mjs            # 处理记录写入
+    routes/                # image / idphoto / pdf / suite / history / doc / sheet / ocr / meta
+  public/                  # 原生 ES 模块前端（core / tools / views），无构建步骤
+  scripts/smoke.mjs        # 86 项冒烟测试
+  testdata/                # 冒烟用样例（PDF/图片/音视频/表格/文档）
+version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码快照）
+```
+
+## 安全声明
+
+网络安全分类**只面向自有或已获授权的资产**：没有口令爆破、漏洞利用或第三方扫描服务，全部为连通性、指纹与配置审计的本地实现，每条结果都带 `warning: 仅限自有或已获授权的资产`。请勿用于未授权目标。
+
+## 验证
+
+- `npm run smoke`：86/86 通过（图片 4 · PDF 基础 7 · PDF 套件 22 · 音视频 16 · 网络 15 · 数据库 9 · 基础 8 …）
+- 浏览器（Edge/Chromium）实测：首页 75 张卡片、音视频/网络安全/历史页面、文件工具、JSON 结果面板均无控制台报错。
+
+## 版本历史
+
+| 版本 | 日期 | 说明 |
+| --- | --- | --- |
+| 0.1.1 | 2026-10-20 | 移除 Stirling-PDF 端口与 JDK；新增音视频 18 项、网络安全 16 项、原生 PDF 21 项；接入本地 MySQL；新增历史页 |
+| 0.1.0_beta | 2026-10-20 | 首个基线：Stirling 融合 + 7 套水印 + 离线 OCR + 前端模块化 |
+
+详见 `version/<版本>/CHANGELOG.md`。
+
+## License
+
+MIT
