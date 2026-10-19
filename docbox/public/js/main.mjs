@@ -17,6 +17,24 @@ import { renderMdEditor } from './views/md-editor.mjs';
 import { renderMdTable } from './views/md-table.mjs';
 import { renderLogin, hideLogin } from './views/login.mjs';
 
+history.scrollRestoration = 'manual';
+const SCROLL_KEY = 'docbox.scroll';
+const scrollMemory = new Map();
+let lastHash = null;
+
+try {
+  const saved = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || '{}');
+  Object.keys(saved).forEach((k) => scrollMemory.set(k, Number(saved[k]) || 0));
+} catch { /* 忽略损坏的存储 */ }
+
+function persistScroll() {
+  try {
+    const obj = {};
+    scrollMemory.forEach((v, k) => { obj[k] = v; });
+    sessionStorage.setItem(SCROLL_KEY, JSON.stringify(obj));
+  } catch { /* 隐私模式忽略 */ }
+}
+
 const VIEWS = ['home', 'tool', 'watermark', 'idphoto', 'editor', 'extract', 'ocr', 'history', 'accounts', 'md-editor', 'md-table'];
 let app = null;
 let wired = false;
@@ -102,9 +120,28 @@ function wireShell() {
 /* ---------------- 路由 ---------------- */
 function route() {
   if (!app) return;
+  // 记住上一个列表页的滚动位置：从分类页进入工具后返回，仍停在原来的板块位置
+  const hash = location.hash || '#/';
+  if (lastHash && lastHash !== hash) { scrollMemory.set(lastHash, window.scrollY); persistScroll(); }
+  lastHash = hash;
   const { parts } = parseHash();
   const [head, arg] = parts;
-  window.scrollTo({ top: 0 });
+  const restore = scrollMemory.has(hash) ? scrollMemory.get(hash) : 0;
+  paint(head, arg);
+  restoreScroll(restore);
+}
+
+function restoreScroll(y) {
+  if (!y) { window.scrollTo(0, 0); return; }
+  const apply = () => window.scrollTo(0, y);
+  requestAnimationFrame(apply);
+  // 异步渲染的页面（历史记录等）高度可能在首帧后仍不足，补一次
+  setTimeout(() => {
+    if (Math.abs(window.scrollY - y) > 4) window.scrollTo(0, y);
+  }, 160);
+}
+
+function paint(head, arg) {
 
   const guard = (mod) => {
     if (can(mod)) return true;

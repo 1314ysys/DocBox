@@ -100,7 +100,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   border-right: 1px solid var(--line);
   background: rgba(255, 255, 255, .55);
   display: flex; flex-direction: column;
+  /* 左侧导航独立滚动：鼠标停在导航上只滚导航，滚到头也不把右侧页面带走 */
+  overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
 }
+.sidebar::-webkit-scrollbar { width: 8px; }
+.sidebar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
 .sidebar nav { display: flex; flex-direction: column; gap: 3px; }
 .nav-label { font-size: 11px; letter-spacing: .12em; color: #9aa8bb; font-weight: 700; padding: 20px 12px 7px; }
 .nav-item {

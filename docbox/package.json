@@ -1,6 +1,6 @@
 {
   "name": "docbox",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "本地文档与图像工作台：全类型文件预览（图片/PDF 首页/文本/表格/幻灯片/音视频）、账户角色与模块授权、15 项文档能力、23 项原生 PDF、18 项音视频、16 项网络体检、离线 OCR。",
   "main": "server.mjs",
   "type": "module",

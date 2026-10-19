@@ -106,7 +106,7 @@ record('管理员拥有全部模块', (login.payload.user?.modules || []).length
 const me = await getJson('登录态回读', '/api/auth/me');
 record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
 const health = await getJson('健康检查（免登录）', '/api/health');
-record('版本号 0.1.4', health.version === '0.1.4', 0, health.version);
+record('版本号 0.1.5', health.version === '0.1.5', 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
 record('套件 57 + 自研 32 - 重复 2 = 87', app.suiteToolCount === 57 && app.nativeToolCount === 32 && app.toolCount === 87, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');

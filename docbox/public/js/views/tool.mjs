@@ -5,6 +5,7 @@ import { renderFields, readFields } from '../core/fields.mjs';
 import { renderResults, clearResults } from '../core/results.mjs';
 import { createPreview } from '../core/preview.mjs';
 import { toast, setBusy } from '../core/ui.mjs';
+import { CATS } from '../tools/catalog.mjs';
 
 export function renderTool(app, tool) {
   const view = $('#view-tool');
@@ -19,7 +20,7 @@ export function renderTool(app, tool) {
     : '';
   view.innerHTML = `
     <div class="tool-head">
-      <a class="back" href="#/">← 返回全部工具</a>
+      <a class="back" href="${tool.cat ? '#/cat/' + tool.cat : '#/'}">${tool.cat ? '← 返回' + (CATS[tool.cat]?.name || '全部工具') : '← 返回全部工具'}</a>
       <div class="tool-title">
         <span class="tool-ico cat-${tool.cat}">${iconSvg(tool.icon)}</span>
         <div><h1>${esc(tool.name)}</h1><p>${esc(tool.desc || '')}</p></div>

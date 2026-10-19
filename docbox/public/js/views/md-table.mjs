@@ -19,7 +19,7 @@ export function renderMdTable(app) {
   const view = $('#view-md-table');
   view.innerHTML = `
     <div class="tool-head">
-      <a class="back" href="#/">← 返回全部工具</a>
+      <a class="back" href="#/cat/doc">← 返回文档</a>
       <div class="tool-title">
         <span class="tool-ico cat-doc">TAB</span>
         <div><h1>Markdown 表格生成器</h1><p>选好行数与列数，实时生成标准 Markdown 表格模板，可复制或下载 .md。</p></div>

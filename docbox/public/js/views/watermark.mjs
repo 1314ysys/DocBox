@@ -64,7 +64,7 @@ export function renderWatermark(app) {
 
   view.innerHTML = `
     <div class="tool-head">
-      <a class="back" href="#/">← 返回全部工具</a>
+      <a class="back" href="#/cat/image">← 返回图片</a>
       <div class="tool-title">
         <span class="tool-ico cat-image">${iconSvg('watermark')}</span>
         <div><h1>工作水印 / 全图水印</h1><p>6 套现场打卡水印，加 1 套证件防滥用透明水印；参数可保存复用</p></div>

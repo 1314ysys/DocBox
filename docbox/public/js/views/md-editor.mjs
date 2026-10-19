@@ -41,7 +41,7 @@ export function renderMdEditor(app) {
   const view = $('#view-md-editor');
   view.innerHTML = `
     <div class="tool-head">
-      <a class="back" href="#/">← 返回全部工具</a>
+      <a class="back" href="#/cat/doc">← 返回文档</a>
       <div class="tool-title">
         <span class="tool-ico cat-doc">MD</span>
         <div><h1>Markdown 编辑器</h1><p>左边编辑、右边实时预览，支持导出 HTML / PDF / .md，草稿自动保存在本机浏览器。</p></div>
