@@ -106,7 +106,7 @@ record('管理员拥有全部模块', (login.payload.user?.modules || []).length
 const me = await getJson('登录态回读', '/api/auth/me');
 record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
 const health = await getJson('健康检查（免登录）', '/api/health');
-record('版本号 0.1.3', health.version === '0.1.3', 0, health.version);
+record('版本号 0.1.4', health.version === '0.1.4', 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
 record('套件 57 + 自研 32 - 重复 2 = 87', app.suiteToolCount === 57 && app.nativeToolCount === 32 && app.toolCount === 87, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');
@@ -257,6 +257,21 @@ record('表格含分隔行', /\| :--- \| :---: \| ---: \|/.test(mt.payload.data?
 const mr = await json('Markdown 渲染预览', 'POST', DOC + 'md-render', { md: '## 标题\n\n**加粗**' });
 record('渲染含加粗标签', /<strong>/.test(mr.payload.data?.html || ''), 0, 'html ' + (mr.payload.data?.html || '').length);
 const wrongType = await post('错误类型被拒', DOC + 'md-to-pdf', { field: 'file', files: ['sample.docx'], expectStatus: 400 });
+
+// ---------------- G2. 通用预览 ----------------
+const pvDoc = await post('预览 docx 文本', '/api/preview/document', { field: 'file', files: ['sample.docx'] });
+record('docx 预览为文本', pvDoc.payload.data?.kind === 'text' && (pvDoc.payload.data?.text || '').includes('DocBox'), 0, pvDoc.payload.data?.kind + ' · ' + (pvDoc.payload.data?.chars || 0) + ' 字');
+const pvXls = await post('预览 xlsx 表格', '/api/preview/document', { field: 'file', files: ['sample.xlsx'] });
+record('xlsx 预览为表格', pvXls.payload.data?.kind === 'table' && (pvXls.payload.data?.sheets || []).length > 0, 0, (pvXls.payload.data?.sheets || []).map((x) => x.name).join(','));
+const pvPpt = await post('预览 pptx 幻灯片', '/api/preview/document', { field: 'file', files: ['sample.pptx'] });
+record('pptx 预览为幻灯片', pvPpt.payload.data?.kind === 'slides' && pvPpt.payload.data?.count === 2, 0, 'count=' + pvPpt.payload.data?.count);
+const pvMd = await post('预览 md 文本', '/api/preview/document', { field: 'file', files: ['sample.md'] });
+record('md 预览为文本', pvMd.payload.data?.kind === 'text', 0, (pvMd.payload.data?.lines || 0) + ' 行');
+if (ppt.payload.files?.[0]?.url) {
+  const pvOut = await json('预览已生成 PDF', 'POST', '/api/preview/output', { url: ppt.payload.files[0].url, name: ppt.payload.files[0].name });
+  record('输出文件预览为 pdf', pvOut.payload.data?.kind === 'pdf', 0, pvOut.payload.data?.kind || '');
+}
+const pvBad = await json('非法预览地址被拒', 'POST', '/api/preview/output', { url: '/etc/passwd' }, 400);
 
 // ---------------- H. 数据库 / 历史 ----------------
 const hist = await getJson('处理历史', '/api/history?limit=20');

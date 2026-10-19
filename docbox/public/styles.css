@@ -846,3 +846,55 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   .md-input { height: 300px; border-right: 0; border-bottom: 1px solid #e2e8f0; }
   .md-preview { height: 320px; }
 }
+
+
+/* ============================================================ v0.1.4
+   通用预览：图片 / PDF 首页 / 文本 / 表格 / 幻灯片 / 结果文件 */
+.media-preview { margin-top: 14px; }
+.pv { display: flex; flex-direction: column; gap: 10px; }
+.pv-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #475569; flex-wrap: wrap; }
+.pv-head b { font-size: 13px; color: #0f172a; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-tag {
+  background: #0f766e; color: #fff; font-size: 10px; letter-spacing: .06em;
+  padding: 2px 7px; border-radius: 999px; font-weight: 700;
+}
+.pv-meta { margin-left: auto; color: #64748b; font-variant-numeric: tabular-nums; }
+.pv-body { display: flex; flex-direction: column; gap: 10px; }
+
+.pv-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.pv-thumb { display: block; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: #fff; text-decoration: none; }
+.pv-thumb img { width: 100%; height: 96px; object-fit: cover; display: block; background: #0f172a; }
+.pv-thumb span { display: block; padding: 5px 8px; font-size: 11px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pv-pdf { display: flex; gap: 12px; flex-wrap: wrap; }
+.pv-page { border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; padding: 6px; box-shadow: 0 2px 8px rgba(15, 23, 42, .06); }
+.pv-page canvas { display: block; max-width: 320px; height: auto; border-radius: 4px; }
+.pv-page span { display: block; text-align: center; font-size: 11px; color: #94a3b8; margin-top: 4px; }
+
+.pv-text {
+  background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 10px;
+  font-family: Consolas, "Microsoft YaHei", monospace; font-size: 12.5px; line-height: 1.7;
+  max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0;
+}
+.pv-text.small { max-height: 120px; font-size: 11.5px; padding: 8px 10px; }
+.pv-more { font-size: 11.5px; color: #94a3b8; }
+.pv-none { font-size: 12.5px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 8px 12px; }
+.pv-loading { font-size: 12.5px; color: #64748b; }
+
+.pv-sheet { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+.pv-sheet-name { background: #f8fafc; padding: 6px 10px; font-size: 12px; color: #475569; border-bottom: 1px solid #e2e8f0; }
+.pv-table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+.pv-table th, .pv-table td { border: 1px solid #e2e8f0; padding: 4px 8px; text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-table th { background: #f1f5f9; font-weight: 600; }
+
+.pv-slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.pv-slide {
+  border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 10px 12px;
+  font-size: 12px; color: #334155; min-height: 70px;
+}
+.pv-slide b { display: block; font-size: 12.5px; color: #0f172a; margin-bottom: 4px; }
+.pv-slide ul { margin: 0; padding-left: 16px; color: #64748b; }
+.pv-slide li { margin: 2px 0; }
+
+.result-item .r-pv { width: 100%; }
+.result-item .r-pv canvas { max-width: 100%; }

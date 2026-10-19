@@ -3,9 +3,17 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.1.3` · 87 个可用工具 · 15 项文档能力 · 音视频预览 · 账户角色与模块授权 · 132 项冒烟断言全通过
+`v0.1.4` · 87 个可用工具 · 全类型文件预览 · 15 项文档能力 · 账户角色与模块授权 · 143 项冒烟断言全通过
 
 ---
+
+## 0.1.4 有什么变化
+
+- **全类型预览**：所有带文件的工具，选完文件立刻预览 —— 图片缩略图、PDF 首页缩略图（pdf.js 客户端渲染）、Word 文本、Excel 表格、PPT 分页要点、Markdown/TXT/HTML 文本、音频/视频播放器，浏览器不支持的媒体容器给出转码提示。
+- **结果也能预览**：处理完成后结果卡片里直接看 —— PDF 首页缩略图、转出的 Word 文本、Excel 表格、TXT/MD 文本，图片与音视频保持原来的缩略图与播放器。
+- **预览接口**：`/api/preview/document`（上传文件解析为 text / table / slides）与 `/api/preview/output`（按 `/files/...` 地址预览已生成文件），只允许本系统输出目录，越界地址直接 400。
+- **OCR 页加预览**：选图后先看缩略图再识别。
+- 新增 [preview.mjs](docbox/public/js/core/preview.mjs)（前端预览调度）与 [preview.mjs](docbox/src/routes/preview.mjs)（后端解析）。
 
 ## 0.1.3 有什么变化
 
@@ -74,7 +82,7 @@ cd ..
 ```powershell
 cd docbox
 npm start            # node --max-old-space-size=1536 server.mjs
-npm run smoke        # 132 项冒烟检查（需服务已启动）
+npm run smoke        # 143 项冒烟检查（需服务已启动）
 ```
 
 ## 本地数据库
@@ -159,9 +167,9 @@ docbox/
       docops.mjs           # DOCX 直写 / PPTX 解析 / 公文排版 / Markdown 工具
       netprobe.mjs         # 网络探测（16 项，纯 Node 实现）
       track.mjs            # 处理记录写入
-    routes/                # auth / accounts / image / idphoto / pdf / suite / history / doc / sheet / ocr / meta
+    routes/                # auth / accounts / preview / image / idphoto / pdf / suite / history / doc / sheet / ocr / meta
   public/                  # 原生 ES 模块前端（core / tools / views），含登录页、账户管理、Markdown 编辑器、音视频预览
-  scripts/smoke.mjs        # 132 项冒烟测试
+  scripts/smoke.mjs        # 143 项冒烟测试
   testdata/                # 冒烟用样例（PDF / 图片 / 音视频 / 表格 / Word / PPTX / Markdown / HTML）
 version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码快照）
 ```
@@ -172,13 +180,14 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 
 ## 验证
 
-- `npm run smoke`：**132/132 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 音视频 16 · 网络安全 15 · 数据库 10 · 其它 25）
-- 浏览器（Edge/Chromium）实测：首页 87 张卡片、文档 15 项、音视频预览与结果播放器、Markdown 编辑器导出、表格生成器、公文排版、账户权限，均无控制台报错。
+- `npm run smoke`：**143/143 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 预览 11 · 音视频 16 · 网络安全 15 · 数据库 10 · 其它 25）
+- 浏览器（Edge/Chromium）实测：首页 87 张卡片、文档 15 项、图片/PDF/Word/Excel/PPT/Markdown/TXT 七类预览、结果 PDF 与 Word 预览、OCR 缩略图、音视频播放器、Markdown 编辑器导出、公文排版、账户权限，均无控制台报错。
 
 ## 版本历史
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
+| 0.1.4 | 2026-10-20 | 全类型文件预览：图片 / PDF 首页 / Word 文本 / Excel 表格 / PPT 分页 / Markdown-TXT 文本 / 音视频播放器，结果卡片同样可预览 |
 | 0.1.3 | 2026-10-20 | 文档模块扩到 15 项（对齐 gongjuheji.com/document：PPT/Html↔Word/TXT/批量/公文排版/MD 编辑器/表格生成器），音视频预览播放器 |
 | 0.1.2 | 2026-10-20 | 登录 + 角色 + 模块授权（导航/路由/接口三重拦截）、账户管理页、展示卡片与模块一一对应 |
 | 0.1.1 | 2026-10-20 | 移除 Stirling-PDF 端口与 JDK；新增音视频 18 项、网络安全 16 项、原生 PDF 21 项；接入本地 MySQL；新增历史页 |

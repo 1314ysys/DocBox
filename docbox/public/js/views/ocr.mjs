@@ -2,8 +2,10 @@ import { $, esc, fmtBytes } from '../core/dom.mjs';
 import { postForm } from '../core/api.mjs';
 import { downloadUrl } from '../core/api.mjs';
 import { toast } from '../core/ui.mjs';
+import { createPreview } from '../core/preview.mjs';
 
 let st = null;
+let ocrPreview = null;
 
 export function renderOcr() {
   st = { mode: 'image', files: [], pdfjs: null, busy: false };
@@ -23,10 +25,13 @@ export function renderOcr() {
       runBtn.disabled = true;
       $('#ocrText').value = '';
       $('#ocrConf').textContent = '';
+      if (ocrPreview) ocrPreview.clear();
       drop.querySelector('b').textContent = st.mode === 'pdf' ? '选择或拖入 PDF 文件' : '选择或拖入图片（可多张）';
     };
   });
 
+  const pvHost = $('#ocrPreview');
+  ocrPreview = pvHost ? createPreview(pvHost) : null;
   $('#ocrPick').onclick = (e) => { e.stopPropagation(); input.click(); };
   drop.onclick = () => input.click();
   input.onchange = () => { setFiles([...input.files]); input.value = ''; };
@@ -58,6 +63,7 @@ function setFiles(files) {
   if (!valid.length) { toast('请选择有效文件', 'error'); return; }
   st.files = st.mode === 'pdf' ? valid.slice(0, 1) : valid.slice(0, 40);
   $('#ocrMeta').textContent = st.files.map((f) => f.name + '（' + fmtBytes(f.size) + '）').join('、');
+  if (ocrPreview) ocrPreview.show(st.files);
   $('#ocrRun').disabled = false;
   $('#ocrText').value = '';
   $('#ocrConf').textContent = '';

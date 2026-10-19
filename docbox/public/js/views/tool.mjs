@@ -3,14 +3,13 @@ import { postForm } from '../core/api.mjs';
 import { createFileList } from '../core/files.mjs';
 import { renderFields, readFields } from '../core/fields.mjs';
 import { renderResults, clearResults } from '../core/results.mjs';
-import { createFilePreview } from '../core/media.mjs';
+import { createPreview } from '../core/preview.mjs';
 import { toast, setBusy } from '../core/ui.mjs';
 
 export function renderTool(app, tool) {
   const view = $('#view-tool');
   const needsFile = Boolean(tool.accept);
   const isData = tool.mode === 'data' || tool.mode === 'upload-data';
-  const isMediaTool = tool.cat === 'media' || /video\/|audio\//.test(tool.accept || '');
   const showFile = needsFile || tool.mode === 'upload-data';
   let step = 1;
   const fileStep = showFile ? step++ : null;
@@ -28,7 +27,7 @@ export function renderTool(app, tool) {
     </div>
     <div class="workspace">
       <div class="panel">
-        ${showFile ? '<div class="panel-title"><h2>' + fileStep + '. 选择文件</h2><span data-hint>' + esc(tool.filesHint || (tool.multiple ? '可多选，拖动排序' : '一次一个文件')) + '</span></div><div data-files></div><div class="media-preview" data-media hidden></div><div data-extra hidden></div>' : ''}
+        ${showFile ? '<div class="panel-title"><h2>' + fileStep + '. 选择文件</h2><span data-hint>' + esc(tool.filesHint || (tool.multiple ? '可多选，拖动排序' : '一次一个文件')) + '</span></div><div data-files></div><div class="media-preview" data-preview hidden></div><div data-extra hidden></div>' : ''}
         ${fieldGrid}
         ${!showFile && !tool.fields?.length ? '<div class="net-note">该工具无需文件与参数，直接点击开始即可。</div>' : ''}
         <div class="run-bar">
@@ -59,8 +58,8 @@ export function renderTool(app, tool) {
   const hint = $('[data-runhint]', view);
   let currentData = null;
 
-  const mediaBox = $('[data-media]', view);
-  const preview = isMediaTool && mediaBox ? createFilePreview(mediaBox) : null;
+  const previewBox = $('[data-preview]', view);
+  const preview = previewBox ? createPreview(previewBox) : null;
   const list = filesBox
     ? createFileList(filesBox, {
       multiple: Boolean(tool.multiple),

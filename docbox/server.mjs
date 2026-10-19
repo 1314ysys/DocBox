@@ -15,6 +15,7 @@ import { docRouter } from './src/routes/doc.mjs';
 import { sheetRouter } from './src/routes/sheet.mjs';
 import { ocrRouter } from './src/routes/ocr.mjs';
 import { metaRouter } from './src/routes/meta.mjs';
+import { previewRouter } from './src/routes/preview.mjs';
 import { authRouter } from './src/routes/auth.mjs';
 import { accountsRouter } from './src/routes/accounts.mjs';
 import { attachUser, requireAuth, requireModule, authEnabled } from './src/lib/auth.mjs';
@@ -39,6 +40,7 @@ app.use((req, res, next) => (req.path === '/api/health' ? next() : requireAuth(r
 app.use(requireModule);
 
 app.use(metaRouter);
+app.use(previewRouter);
 app.use(accountsRouter);
 app.use(imageRouter);
 app.use(idphotoRouter);
