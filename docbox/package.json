@@ -1,0 +1,40 @@
+{
+  "name": "docbox",
+  "version": "0.1.0_beta",
+  "description": "本地文档与图像工作台：7 套工作水印、证件照排版、PDF/图片/文档/表格工具、离线 OCR，并接入 Stirling-PDF 专业套件。",
+  "main": "server.mjs",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node --max-old-space-size=1536 --max-semi-space-size=16 server.mjs",
+    "dev": "node --watch --max-old-space-size=1536 --max-semi-space-size=16 server.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "test": "node scripts/smoke.mjs"
+  },
+  "keywords": [
+    "pdf",
+    "image",
+    "watermark",
+    "ocr",
+    "stirling-pdf",
+    "local-first"
+  ],
+  "author": "DocBox",
+  "license": "MIT",
+  "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@tesseract.js-data/chi_sim": "^1.0.0",
+    "express": "^5.3.0",
+    "jszip": "^3.10.2",
+    "mammoth": "^1.13.0",
+    "marked": "^18.1.1",
+    "multer": "^2.4.0",
+    "pdf-lib": "^1.17.1",
+    "sharp": "^0.35.5",
+    "tesseract.js": "^7.0.0",
+    "turndown": "^7.2.4",
+    "xlsx": "^0.18.5"
+  }
+}

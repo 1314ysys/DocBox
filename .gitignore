@@ -1,0 +1,30 @@
+# 依赖与运行时（不进版本库）
+node_modules/
+.npm-cache/
+
+# 本地运行时（JDK / 字体 / Stirling 二进制）
+runtime/
+fonts/
+stirling/*.jar
+stirling/*.jar.orig
+stirling/lib/
+stirling/natives/
+stirling/logs/
+stirling/tmp/
+stirling/configs/
+stirling/*.log
+stirling/*.pid
+
+# 运行时产物
+docbox/outputs/
+docbox/uploads/
+docbox/tmp/
+docbox/.cache/
+docbox/shots/
+docbox/*.log
+docbox/*.pid
+
+# 系统
+.DS_Store
+Thumbs.db
+*.tmp

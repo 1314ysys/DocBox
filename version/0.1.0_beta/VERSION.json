@@ -1,0 +1,36 @@
+{
+  "name": "DocBox",
+  "version": "0.1.0_beta",
+  "channel": "beta",
+  "released": "2026-10-20",
+  "gitTag": "v0.1.0_beta",
+  "summary": "首个正式基线：融合 Stirling-PDF 3.2.0 能力、7 套水印模板、离线 OCR 与前端模块化重构。",
+  "counts": {
+    "nativeTools": 20,
+    "stirlingTools": 23,
+    "watermarkTemplates": 7,
+    "idPhotoPresets": 10,
+    "httpRoutes": 30
+  },
+  "highlights": [
+    "移除 miniPaint，PDF 专业能力统一由 Stirling-PDF 提供，冲突项由 Stirling 优先、本地引擎兜底",
+    "6 套工作水印（建筑施工/销售外勤/物业管理/酒店餐饮/快递物流/环境卫生）+ 1 套证件防滥用透明水印",
+    "离线 OCR：tesseract.js v7 + chi_sim，独立子进程，支持图片批量与整本 PDF",
+    "前端拆分为 ES 模块（core / tools / views），新增文件拖拽排序与水印模板本地持久化",
+    "工程卫生：清理 91 个孤儿文件、依赖补登记、Edge profile 统一、启动即清理"
+  ],
+  "requirements": {
+    "node": ">=20",
+    "os": "Windows 10/11（文档转 PDF 需本机 Edge）",
+    "stirling": "Stirling-PDF 3.2.0 + JDK 25（可选，缺失时自动回退本地引擎）"
+  },
+  "knownIssues": [
+    "Stirling 合并/拆分在 Windows 下缺 jpdfium 原生库，自动回退本地 pdf-lib",
+    "Stirling 的 OCR、PDF→Word/Excel、PDF/A、修复等能力不可用",
+    "PDF 中文水印依赖本机 simhei 字体"
+  ],
+  "checks": {
+    "smoke": "33/33 通过",
+    "ui": "home/watermark/ocr/idphoto/editor/extract/tool/stirling 全部无控制台错误"
+  }
+}

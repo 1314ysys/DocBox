@@ -1,0 +1,180 @@
+/**
+ * 水印模板（唯一事实来源）：6 套工作水印 + 1 套透明全图水印。
+ * 模板字段由 /api/watermark/templates 下发，前端据此动态渲染色水印表单。
+ */
+const commonTime = [
+  { key: 'date', label: '日期', type: 'date', value: '' },
+  { key: 'time', label: '时间', type: 'time', value: '' },
+  { key: 'location', label: '地点', type: 'text', value: '', placeholder: '例如：杭州市余杭区文三路 90 号' },
+  { key: 'gps', label: 'GPS 坐标', type: 'text', value: '', placeholder: '可点“获取定位”，或手动填写纬度, 经度' },
+  { key: 'weather', label: '天气', type: 'text', value: '', placeholder: '例如：晴 24℃' },
+  { key: 'note', label: '备注', type: 'textarea', value: '', placeholder: '补充说明，可留空' },
+];
+
+export const WATERMARK_TEMPLATES = [
+  {
+    id: 'construction',
+    name: '建筑施工',
+    mode: 'card',
+    accent: '#0b64d6',
+    desc: '工程现场记录：施工区域、施工内容、拍摄时间与地点',
+    fields: [
+      { key: 'brand', label: '企业 / 项目名', type: 'text', value: '中国建筑' },
+      { key: 'area', label: '施工区域', type: 'text', value: '', placeholder: '例如：隧道 E30 管节' },
+      { key: 'content', label: '施工内容', type: 'text', value: '', placeholder: '例如：混凝土浇筑' },
+      ...commonTime,
+    ],
+    rows: [
+      { type: 'brand', key: 'brand' },
+      { type: 'kv', key: 'area', label: '施工区域' },
+      { type: 'kv', key: 'content', label: '施工内容' },
+      { type: 'shot', key: 'date', timeKey: 'time', label: '拍摄时间' },
+      { type: 'location', key: 'location' },
+      { type: 'gps', key: 'gps' },
+      { type: 'note', key: 'note' },
+    ],
+  },
+  {
+    id: 'sales',
+    name: '销售外勤',
+    mode: 'card',
+    accent: '#f97316',
+    desc: '外勤打卡：打卡时间、日期星期、地点与拜访事项',
+    fields: [
+      { key: 'timeLabel', label: '时间标签', type: 'text', value: '打卡' },
+      ...commonTime,
+      { key: 'customer', label: '客户 / 单位', type: 'text', value: '' },
+      { key: 'visit', label: '拜访事项', type: 'text', value: '' },
+    ],
+    rows: [
+      { type: 'time', key: 'time', labelKey: 'timeLabel' },
+      { type: 'meta', dateKey: 'date', weatherKey: 'weather' },
+      { type: 'location', key: 'location' },
+      { type: 'gps', key: 'gps' },
+      { type: 'kv', key: 'customer', label: '客户单位' },
+      { type: 'kv', key: 'visit', label: '拜访事项' },
+      { type: 'note', key: 'note' },
+    ],
+  },
+  {
+    id: 'property',
+    name: '物业管理',
+    mode: 'card',
+    accent: '#2f7fa8',
+    desc: '物业巡检：时段、日期天气、项目楼栋与巡检项',
+    fields: [
+      { key: 'period', label: '时段', type: 'select', value: 'auto', options: [['auto', '自动（按时间）'], ['早晨', '早晨'], ['上午', '上午'], ['中午', '中午'], ['下午', '下午'], ['傍晚', '傍晚'], ['晚间', '晚间']] },
+      ...commonTime,
+      { key: 'project', label: '项目 / 小区', type: 'text', value: '' },
+      { key: 'building', label: '楼栋 / 部位', type: 'text', value: '' },
+      { key: 'item', label: '巡检项', type: 'text', value: '' },
+    ],
+    rows: [
+      { type: 'time', key: 'time', labelKey: 'period' },
+      { type: 'meta', dateKey: 'date', weatherKey: 'weather' },
+      { type: 'location', key: 'location' },
+      { type: 'gps', key: 'gps' },
+      { type: 'kv', key: 'project', label: '项目小区' },
+      { type: 'kv', key: 'building', label: '楼栋部位' },
+      { type: 'kv', key: 'item', label: '巡检项' },
+      { type: 'note', key: 'note' },
+    ],
+  },
+  {
+    id: 'hotel',
+    name: '酒店餐饮',
+    mode: 'card',
+    accent: '#3b82f6',
+    desc: '酒店餐饮打卡：餐次、门店、时间与地点',
+    fields: [
+      { key: 'timeLabel', label: '时间标签', type: 'text', value: '打卡' },
+      ...commonTime,
+      { key: 'store', label: '门店 / 包厢', type: 'text', value: '' },
+      { key: 'meal', label: '餐次', type: 'select', value: '午餐', options: [['早餐', '早餐'], ['午餐', '午餐'], ['晚餐', '晚餐'], ['宴会', '宴会'], ['夜宵', '夜宵']] },
+    ],
+    rows: [
+      { type: 'time', key: 'time', labelKey: 'timeLabel' },
+      { type: 'meta', dateKey: 'date', weatherKey: 'weather' },
+      { type: 'location', key: 'location' },
+      { type: 'gps', key: 'gps' },
+      { type: 'kv', key: 'store', label: '门店包厢' },
+      { type: 'kv', key: 'meal', label: '餐次' },
+      { type: 'note', key: 'note' },
+    ],
+  },
+  {
+    id: 'logistics',
+    name: '快递物流',
+    mode: 'card',
+    accent: '#2f9fd0',
+    desc: '快递物流打卡：运单、派件人、状态与地点',
+    fields: [
+      { key: 'timeLabel', label: '时间标签', type: 'text', value: '打卡' },
+      ...commonTime,
+      { key: 'waybill', label: '运单号', type: 'text', value: '' },
+      { key: 'courier', label: '派件人', type: 'text', value: '' },
+      { key: 'status', label: '状态', type: 'select', value: '派送中', options: [['已揽收', '已揽收'], ['运输中', '运输中'], ['派送中', '派送中'], ['已签收', '已签收'], ['异常', '异常']] },
+    ],
+    rows: [
+      { type: 'time', key: 'time', labelKey: 'timeLabel' },
+      { type: 'meta', dateKey: 'date', weatherKey: 'weather' },
+      { type: 'location', key: 'location' },
+      { type: 'gps', key: 'gps' },
+      { type: 'kv', key: 'waybill', label: '运单号' },
+      { type: 'kv', key: 'courier', label: '派件人' },
+      { type: 'kv', key: 'status', label: '状态' },
+      { type: 'note', key: 'note' },
+    ],
+  },
+  {
+    id: 'sanitation',
+    name: '环境卫生',
+    mode: 'card',
+    accent: '#f07850',
+    desc: '环卫检查：时段、责任区域、责任人与检查结果',
+    fields: [
+      { key: 'period', label: '时段', type: 'select', value: 'auto', options: [['auto', '自动（按时间）'], ['早晨', '早晨'], ['上午', '上午'], ['中午', '中午'], ['下午', '下午'], ['傍晚', '傍晚'], ['晚间', '晚间']] },
+      ...commonTime,
+      { key: 'area', label: '责任区域', type: 'text', value: '' },
+      { key: 'owner', label: '责任人', type: 'text', value: '' },
+      { key: 'result', label: '检查结果', type: 'select', value: '合格', options: [['合格', '合格'], ['整改中', '整改中'], ['不合格', '不合格']] },
+    ],
+    rows: [
+      { type: 'time', key: 'time', labelKey: 'period' },
+      { type: 'meta', dateKey: 'date', weatherKey: 'weather' },
+      { type: 'location', key: 'location' },
+      { type: 'gps', key: 'gps' },
+      { type: 'kv', key: 'area', label: '责任区域' },
+      { type: 'kv', key: 'owner', label: '责任人' },
+      { type: 'kv', key: 'result', label: '检查结果' },
+      { type: 'note', key: 'note' },
+    ],
+  },
+  {
+    id: 'docfull',
+    name: '透明全图水印',
+    mode: 'tile',
+    accent: '#e11d48',
+    desc: '证件照 / 重要证件防 misuse：全图透明平铺，可调方向、透明度与行间距',
+    fields: [
+      { key: 'lines', label: '水印文字（每行一条）', type: 'textarea', value: '仅供办理居住证使用\n他用无效', placeholder: '每行一条，例如：\n仅供办理居住证使用\n张三\n2026-10-20' },
+      { key: 'angle', label: '水印方向（角度）', type: 'range', value: -30, min: -90, max: 90, suffix: '°' },
+      { key: 'opacity', label: '透明度', type: 'range', value: 22, min: 4, max: 70, suffix: '%' },
+      { key: 'gap', label: '行间距 / 铺排间距', type: 'range', value: 180, min: 60, max: 400, suffix: '%' },
+      { key: 'size', label: '字号（占图宽）', type: 'range', value: 3.2, min: 1.2, max: 8, step: 0.1, suffix: '%' },
+      { key: 'color', label: '颜色', type: 'color', value: '#e11d48' },
+      { key: 'layout', label: '排布方式', type: 'select', value: 'tile', options: [['tile', '全图平铺'], ['single', '单条居中']] },
+      { key: 'position', label: '单条位置', type: 'select', value: 'center', options: [['center', '居中'], ['top-left', '左上'], ['top-right', '右上'], ['bottom-left', '左下'], ['bottom-right', '右下']] },
+    ],
+    rows: [],
+  },
+];
+
+export const WATERMARK_BY_ID = Object.fromEntries(WATERMARK_TEMPLATES.map((t) => [t.id, t]));
+
+export function defaultSpec(templateId) {
+  const tpl = WATERMARK_BY_ID[templateId] || WATERMARK_TEMPLATES[0];
+  const spec = { template: tpl.id, mode: tpl.mode, accent: tpl.accent, position: 'bottom-left', scale: 100, opacity: 92, logo: null };
+  for (const f of tpl.fields) spec[f.key] = f.value;
+  return spec;
+}

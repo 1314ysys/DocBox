@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文档百宝箱 · DocBox</title>
+  <meta name="description" content="本地运行的图片与文档处理工具箱：7 套工作水印、证件照 A4 排版、图片压缩裁剪、PDF 合并拆分、Word/Excel/Markdown 转 PDF、离线 OCR，以及 Stirling-PDF 专业套件。">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Ctext x='32' y='43' font-size='30' text-anchor='middle' fill='white' font-family='Arial'%3EDB%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">
+      <div class="brand-mark">DB</div>
+      <div class="brand-text"><strong>文档百宝箱</strong><span>DocBox · 本地文档与图像工作台</span></div>
+    </a>
+    <div class="searchbox">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.2-3.2"></path></svg>
+      <input id="searchInput" type="search" placeholder="搜索工具：水印、证件照、PDF 拆分、OCR…" autocomplete="off">
+    </div>
+    <div class="top-actions">
+      <span id="stirlingPill" class="pill pill-muted"><i></i>Stirling-PDF 检测中</span>
+      <a id="stirlingOpen" class="btn btn-ghost btn-sm" href="http://127.0.0.1:8090/" target="_blank" rel="noopener">打开 PDF 套件 ↗</a>
+    </div>
+  </header>
+
+  <div class="app">
+    <aside class="sidebar">
+      <nav id="sideNav">
+        <a class="nav-item active" data-nav="home" href="#/"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"></path><path d="M5 10v10h14V10"></path></svg></span>首页</a>
+        <div class="nav-label">工作台</div>
+        <a class="nav-item" data-nav="image" href="#/cat/image"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9.5" r="1.8"></circle><path d="m21 15-4.5-4.5L7 20"></path></svg></span>图片工具</a>
+        <a class="nav-item" data-nav="pdf" href="#/cat/pdf"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6M9 17h4"></path></svg></span>PDF 工具</a>
+        <a class="nav-item" data-nav="doc" href="#/cat/doc"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="M4 9h16M8 5v14"></path></svg></span>文档转换</a>
+        <a class="nav-item" data-nav="sheet" href="#/cat/sheet"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M9 9v11"></path></svg></span>表格处理</a>
+        <a class="nav-item" data-nav="ocr" href="#/cat/ocr"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3"></path><path d="M4 12h16"></path></svg></span>文字识别</a>
+        <a class="nav-item" data-nav="stirling" href="#/cat/stirling"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"></path><path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path></svg></span>Stirling 套件</a>
+      </nav>
+      <div class="side-note"><strong>纯本地处理</strong><span>文件只在本机内存与磁盘中流转，不会上传到互联网。</span></div>
+      <div class="side-version">DocBox <span data-version>v0.1.0_beta</span> · Stirling-PDF v3.2.0</div>
+    </aside>
+
+    <main class="main">
+      <section id="view-home" class="view">
+        <div class="hero">
+          <div class="hero-copy">
+            <span class="eyebrow">LOCAL-FIRST · 本地优先</span>
+            <h1>文档与图片，<em>一站处理</em></h1>
+            <p>7 套现场工作水印与证件防滥用水印、证件照 A4 排版、图片压缩裁剪、PDF 合并拆分与页面管理、Word / Excel / Markdown 转 PDF、离线中文 OCR——全部在本机完成。</p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#/watermark">制作工作水印</a>
+              <a class="btn btn-ghost" href="#/ocr">试试离线 OCR</a>
+            </div>
+            <div class="hero-stats">
+              <div><b id="statTools">–</b><span>全部工具</span></div>
+              <div><b id="statNative">–</b><span>本地自研</span></div>
+              <div><b id="statStirling">–</b><span>Stirling-PDF</span></div>
+            </div>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <div class="float-card fc1"><span class="fc-ico">WM</span><div><b>工作水印</b><small>7 套模板 · 可调方向</small></div></div>
+            <div class="float-card fc2"><span class="fc-ico">OCR</span><div><b>离线识别</b><small>中文 · 无需联网</small></div></div>
+            <div class="float-card fc3"><span class="fc-ico">PDF</span><div><b>文档转换</b><small>Word · Excel · MD</small></div></div>
+            <div class="hero-ring"></div>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <div><span class="eyebrow">TOOLBOX</span><h2>全部工具</h2></div>
+          <span id="toolCount" class="muted"></span>
+        </div>
+        <div id="toolSections" class="tool-sections"></div>
+
+        <div class="stirling-banner">
+          <div class="sb-left">
+            <div class="sb-logo">SP</div>
+            <div>
+              <h3>Stirling-PDF 专业套件 <span class="tag">MIT</span></h3>
+              <p>23 项进阶能力已接入：旋转、裁切、拼版、水印、加密解密、元数据、页面重排、PDF ⇄ 图片、书签提取等。</p>
+            </div>
+          </div>
+          <div class="sb-right">
+            <span id="sbStatus" class="pill pill-muted"><i></i>检测中</span>
+            <a class="btn btn-primary btn-sm" href="#/cat/stirling">查看套件工具</a>
+          </div>
+        </div>
+
+        <div class="recent-block">
+          <div class="section-head"><div><span class="eyebrow">HISTORY</span><h2>最近处理</h2></div><button id="recentClear" class="btn btn-ghost btn-sm">清空记录</button></div>
+          <div id="recentList" class="recent-list"></div>
+        </div>
+
+        <footer class="footer">
+          本地部署 · <a href="https://github.com/Stirling-Tools/Stirling-PDF" target="_blank" rel="noopener">Stirling-PDF</a> (MIT) + 自研 DocBox · 文件最多保留 6 小时，请及时下载
+        </footer>
+      </section>
+
+      <section id="view-tool" class="view" hidden></section>
+      <section id="view-watermark" class="view" hidden></section>
+
+      <section id="view-idphoto" class="view" hidden>
+        <div class="tool-head">
+          <a class="back" href="#/">← 返回全部工具</a>
+          <div class="tool-title">
+            <span class="tool-ico cat-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.6"/><path d="M8 17c.7-2 2.2-3 4-3s3.3 1 4 3"/></svg></span>
+            <div><h1>证件照制作</h1><p>上传或调用本机相机拍照，按 1 寸 / 2 寸 / 护照 / 身份证裁剪，一键排版 A4 打印。</p></div>
+          </div>
+        </div>
+        <div class="id-layout">
+          <div class="panel id-visual">
+            <div class="id-stage">
+              <canvas id="idCanvas" width="420" height="588"></canvas>
+              <div id="idEmpty" class="canvas-empty">
+                <svg viewBox="0 0 24 24"><path d="M4 19c0-3 3.6-5 8-5s8 2 8 5"></path><circle cx="12" cy="8" r="3.5"></circle></svg>
+                <b>上传照片，或打开相机</b>
+                <span>照片只在浏览器与本机服务之间传递</span>
+                <div class="id-empty-actions">
+                  <button class="btn btn-primary btn-sm" id="idPick">上传照片</button>
+                  <button class="btn btn-ghost btn-sm" id="idCamera">打开相机</button>
+                </div>
+                <input id="idFile" type="file" accept="image/*" hidden>
+              </div>
+            </div>
+            <div class="id-toolbar">
+              <button class="btn btn-ghost btn-sm" id="idPick2">更换照片</button>
+              <button class="btn btn-ghost btn-sm" id="idCamera2">相机</button>
+              <label class="id-zoom">缩放 <input id="idZoom" type="range" min="100" max="300" value="100"></label>
+              <button class="btn btn-ghost btn-sm" id="idReset">重置位置</button>
+            </div>
+            <p class="options-note" id="idHint">拖动照片调整取景；画布比例就是最终证件照比例。</p>
+          </div>
+          <div class="panel id-side">
+            <h3>证件照规格</h3>
+            <div id="idSizes" class="id-sizes"></div>
+            <div class="fld-row">
+              <label class="fld"><span>A4 排版数量</span><select id="idCopies">
+                <option>1</option><option>2</option><option>4</option><option>6</option><option selected>8</option><option>12</option>
+              </select></label>
+              <label class="fld"><span>排版底色</span><input id="idBg" type="color" value="#ffffff"></label>
+            </div>
+            <label class="check"><input id="idCut" type="checkbox" checked> 添加裁剪虚线</label>
+            <div class="id-actions">
+              <button class="btn btn-primary" id="idDownload">下载单张</button>
+              <button class="btn btn-ghost" id="idPdf">生成 A4 PDF</button>
+              <button class="btn btn-ghost" id="idPng">A4 PNG</button>
+            </div>
+            <div id="idResult" class="result-block"></div>
+            <p class="options-note" id="idSizeNote"></p>
+          </div>
+        </div>
+        <div id="idCameraModal" class="modal-back" hidden>
+          <div class="modal-card camera-card">
+            <header><b>相机拍照</b><button class="modal-x" id="idCameraClose">×</button></header>
+            <video id="idVideo" autoplay playsinline></video>
+            <div class="camera-actions"><button class="btn btn-primary" id="idCapture">拍照</button><span id="idCameraMsg" class="muted"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-editor" class="view" hidden>
+        <div class="tool-head">
+          <a class="back" href="#/">← 返回全部工具</a>
+          <div class="tool-title">
+            <span class="tool-ico cat-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m4 20 10-10M14 4l1 3 3 1-3 1-1 3-1-3-3-1 3-1z"/></svg></span>
+            <div><h1>图片编辑</h1><p>裁剪、旋转、翻转、尺寸调整、色彩微调、文字水印，一站式完成并导出。</p></div>
+          </div>
+        </div>
+        <div class="editor-shell">
+          <div class="editor-stage">
+            <div id="edWrap" class="canvas-wrap">
+              <canvas id="edCanvas"></canvas>
+              <div id="edCropBox" class="crop-box" hidden></div>
+              <div id="edEmpty" class="canvas-empty">
+                <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9.5" r="1.8"></circle><path d="m21 15-4.5-4.5L7 20"></path></svg>
+                <b>拖入图片，或点击选择</b>
+                <span>支持 JPG / PNG / WebP / AVIF 等格式</span>
+                <button class="btn btn-primary btn-sm" id="edPick">选择图片</button>
+                <input id="edFile" type="file" accept="image/*" hidden>
+              </div>
+            </div>
+            <div class="canvas-toolbar">
+              <span id="edInfo" class="muted">尚未载入图片</span>
+              <div class="spacer"></div>
+              <button class="btn btn-ghost btn-sm" id="edUndo" disabled>撤销</button>
+              <button class="btn btn-ghost btn-sm" id="edReset" disabled>重置</button>
+              <button class="btn btn-ghost btn-sm" id="edChange">更换图片</button>
+            </div>
+          </div>
+          <aside class="editor-panel">
+            <div class="ep-group">
+              <h4>变换</h4>
+              <div class="btn-row">
+                <button class="btn btn-soft" data-ed="rotate-left">↺ 左转 90°</button>
+                <button class="btn btn-soft" data-ed="rotate-right">↻ 右转 90°</button>
+                <button class="btn btn-soft" data-ed="flip-h">⇆ 水平翻转</button>
+                <button class="btn btn-soft" data-ed="flip-v">⇅ 垂直翻转</button>
+              </div>
+            </div>
+            <div class="ep-group">
+              <h4>裁剪 <small>在画布上拖拽选择区域</small></h4>
+              <div class="btn-row">
+                <button class="btn btn-soft" id="edCropApply">裁剪选区</button>
+                <button class="btn btn-ghost" id="edCropClear">取消选区</button>
+              </div>
+            </div>
+            <div class="ep-group">
+              <h4>尺寸</h4>
+              <div class="field-grid two">
+                <label class="fld"><span>宽度 px</span><input id="edWidth" type="number" min="1" step="1"></label>
+                <label class="fld"><span>高度 px</span><input id="edHeight" type="number" min="1" step="1"></label>
+              </div>
+              <label class="check"><input id="edLock" type="checkbox" checked> 锁定宽高比</label>
+              <button class="btn btn-soft full" id="edResize">应用尺寸</button>
+            </div>
+            <div class="ep-group">
+              <h4>色彩调整</h4>
+              <label class="range-row"><span>亮度</span><input id="edBrightness" type="range" min="40" max="160" value="100"><b id="edBrightnessV">100%</b></label>
+              <label class="range-row"><span>对比度</span><input id="edContrast" type="range" min="40" max="160" value="100"><b id="edContrastV">100%</b></label>
+              <label class="range-row"><span>饱和度</span><input id="edSaturation" type="range" min="0" max="200" value="100"><b id="edSaturationV">100%</b></label>
+              <button class="btn btn-soft full" id="edAdjust">应用调整</button>
+            </div>
+            <div class="ep-group">
+              <h4>文字水印</h4>
+              <label class="fld"><span>文字内容</span><input id="edText" type="text" value="DocBox" maxlength="60"></label>
+              <div class="field-grid two">
+                <label class="fld"><span>字号 px</span><input id="edTextSize" type="number" min="8" max="400" value="48"></label>
+                <label class="fld"><span>颜色</span><input id="edTextColor" type="color" value="#ffffff"></label>
+              </div>
+              <div class="field-grid two">
+                <label class="fld"><span>透明度</span><input id="edTextOpacity" type="range" min="5" max="100" value="60"></label>
+                <label class="fld"><span>位置</span>
+                  <select id="edTextPos">
+                    <option value="nw">左上</option><option value="n">上方</option><option value="ne">右上</option>
+                    <option value="w">左侧</option><option value="c" selected>居中</option><option value="e">右侧</option>
+                    <option value="sw">左下</option><option value="s">下方</option><option value="se">右下</option>
+                  </select>
+                </label>
+              </div>
+              <button class="btn btn-soft full" id="edAddText">添加文字</button>
+            </div>
+            <div class="ep-group">
+              <h4>导出</h4>
+              <div class="field-grid two">
+                <label class="fld"><span>格式</span><select id="edFormat"><option value="image/png">PNG</option><option value="image/jpeg" selected>JPG</option><option value="image/webp">WebP</option></select></label>
+                <label class="fld"><span>质量 <b id="edQualityV">92%</b></span><input id="edQuality" type="range" min="30" max="100" value="92"></label>
+              </div>
+              <button class="btn btn-primary full" id="edExport" disabled>下载编辑后的图片</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="view-extract" class="view" hidden>
+        <div class="tool-head">
+          <a class="back" href="#/">← 返回全部工具</a>
+          <div class="tool-title">
+            <span class="tool-ico cat-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+            <div><h1>PDF 拆解导出</h1><p>把 PDF 逐页渲染为高清 PNG/JPG（打包 ZIP），或提取全部文字内容。</p></div>
+          </div>
+        </div>
+        <div class="workspace">
+          <div class="panel">
+            <div id="exDrop" class="dropzone"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg><b>选择或拖入 PDF 文件</b><span>文件仅在本地浏览器与服务器间处理</span><button class="btn btn-primary btn-sm" id="exPick">选择 PDF</button><input id="exFile" type="file" accept="application/pdf" hidden></div>
+            <div id="exMeta" class="muted" style="margin-top:14px"></div>
+          </div>
+          <div class="panel">
+            <h3>导出选项</h3>
+            <div class="field-grid two">
+              <label class="fld"><span>图片清晰度</span><select id="exScale"><option value="1">1× 标准</option><option value="2" selected>2× 高清</option><option value="3">3× 超清</option></select></label>
+              <label class="fld"><span>图片格式</span><select id="exFormat"><option value="image/png">PNG</option><option value="image/jpeg">JPG</option><option value="image/webp">WebP</option></select></label>
+            </div>
+            <div class="btn-row" style="margin-top:6px">
+              <button class="btn btn-primary" id="exImages" disabled>导出全部页面 (ZIP)</button>
+              <button class="btn btn-soft" id="exText" disabled>提取文本 (TXT)</button>
+            </div>
+            <div id="exProgress" class="progress" hidden><div></div></div>
+          </div>
+        </div>
+        <div class="panel pages-panel">
+          <div class="section-head" style="margin:0 0 14px"><div><h3 style="margin:0">页面预览</h3><span id="exCount" class="muted"></span></div><div class="spacer"></div><span class="muted" id="exHint">载入 PDF 后显示</span></div>
+          <div id="exPages" class="pdf-pages"></div>
+        </div>
+      </section>
+
+      <section id="view-ocr" class="view" hidden>
+        <div class="tool-head">
+          <a class="back" href="#/">← 返回全部工具</a>
+          <div class="tool-title">
+            <span class="tool-ico cat-ocr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3"/><path d="M4 12h16"/></svg></span>
+            <div><h1>OCR 文字识别</h1><p>中文离线识别（tesseract.js + chi_sim），支持图片批量识别与整本 PDF 识别，结果可复制或导出 TXT。</p></div>
+          </div>
+        </div>
+        <div class="ocr-layout">
+          <div class="panel">
+            <div class="tabs">
+              <button type="button" class="tab active" data-ocr-mode="image">图片 OCR</button>
+              <button type="button" class="tab" data-ocr-mode="pdf">PDF 整本 OCR</button>
+            </div>
+            <div id="ocrDrop" class="dropzone"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg><b>选择或拖入图片（可多张）</b><span>识别在本机完成，不联网</span><button class="btn btn-primary btn-sm" id="ocrPick">选择文件</button><input id="ocrFile" type="file" accept="image/*" multiple hidden></div>
+            <div id="ocrMeta" class="muted"></div>
+            <div class="run-bar">
+              <button class="btn btn-primary" id="ocrRun" disabled>开始识别</button>
+              <button class="btn btn-ghost" id="ocrCopy" disabled>复制文本</button>
+              <button class="btn btn-ghost" id="ocrSave" disabled>下载 TXT</button>
+              <span class="run-hint" id="ocrHint"></span>
+            </div>
+            <div id="ocrProgress" class="progress" hidden><div></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><h2>识别结果</h2><span id="ocrConf"></span></div>
+            <textarea id="ocrText" class="ocr-text" placeholder="识别结果显示在这里，可直接编辑、复制或导出…"></textarea>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/vendor/jszip/jszip.min.js"></script>
+  <script type="module" src="/js/main.mjs"></script>
+</body>
+</html>
