@@ -3,9 +3,17 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.1.1` · 75 个工具 · 7 大分类 · 86 项冒烟断言全通过
+`v0.1.2` · 75 个工具 · 7 大模块 · 账户角色与模块授权 · 110 项冒烟断言全通过
 
 ---
+
+## 0.1.2 有什么变化
+
+- **账户与角色**：登录后才能使用，密码用 scrypt 加盐存储，会话落库（HttpOnly Cookie，7 天）。默认管理员 **root / root**。
+- **模块级权限**：管理员可见 9 个模块（7 个工具模块 + 处理历史 + 账户管理）；普通用户只能看到被勾选的模块，左侧导航、工具卡片、路由**和接口**四处同时拦截，越权请求直接 403。
+- **账户管理页** `#/accounts`：新建账户、切换角色、启停用、重置密码、逐账户勾选模块授权；内置 root 保护（不可删除/停用/降级）、至少保留一名启用的管理员。
+- **展示卡片与模块对应**：右侧 hero 卡片随左侧所选模块变化（PDF 显示合并/加密/页面组织，音视频显示转码/GIF/音轨，网络安全显示端口/证书/响应头审计…），不再是一张通用展示图。
+- 清理残留的 Stirling 入口（顶栏按钮、首页横幅、页脚链接）。
 
 ## 0.1.1 有什么变化
 
@@ -15,6 +23,26 @@
 - **新增 23 项原生 PDF 能力**：旋转、删页、重排、裁剪、缩放、多页合一、小册子、拆分、叠加、长页拼接、解压、扁平化、去空白页、加密、解密、清理、读写元数据、PDF→图片/文字、图片提取、图片转 PDF、书签。
 - **本地 MySQL 落库**：`jobs`（处理历史）、`templates`（水印模板）、`net_reports`（安全报告）、`settings`（偏好）；数据库不可用时自动降级，其余功能照常。
 - **前端新增**：音视频 / 网络安全两个分类页、检测结果 JSON 面板（复制 / 下载）、`#/history` 处理历史页（筛选 / 清空）。
+
+## 账户与权限
+
+首次启动会自动在 MySQL 里创建内置管理员：**root / root**（角色 `admin`，拥有全部模块）。
+
+| 能力 | 管理员 | 普通用户 |
+| --- | --- | --- |
+| 可见模块 | 全部 9 个 | 仅被勾选的模块 |
+| 账户管理 `#/accounts` | 可见可用 | 导航隐藏，接口 403 |
+| 其他模块工具 | 全部可用 | 仅授权模块；未授权模块导航隐藏、卡片过滤、路由跳回首页、接口 403 |
+
+模块键：`image`（图片）`pdf`（PDF）`doc`（文档）`sheet`（表格）`ocr`（识别）`media`（音视频）`net`（网络安全）`history`（处理历史）`accounts`（账户管理，仅管理员）。
+
+安全细节：
+
+- 密码 `scrypt(N=16384, r=8, p=1)` + 16 字节随机盐，比较用 `timingSafeEqual`；
+- 会话是 24 字节随机 sid，存在 `sessions` 表，Cookie 带 `HttpOnly; SameSite=Lax`；
+- 同一账号 5 分钟内登录失败超过 8 次会被限流；
+- 改密码 / 停用 / 删除账户会立刻注销该账户的会话；
+- **数据库不可用时进入「免登录模式」**：本地工具照常可用（不会把自己锁在门外），登录页会提示数据库不可用。
 
 ## 快速开始
 
@@ -59,6 +87,9 @@ npm run smoke        # 86 项冒烟检查（需服务已启动）
 - `templates(template_id, name, spec JSON, updated_at)` — 水印模板（前端保存时同步）
 - `net_reports(id, tool, target, summary JSON, created_at)` — 网络体检结论
 - `settings(k, v, updated_at)` — 偏好键值
+- `users(id, username, password_hash, role, status, display_name, last_login_at)` — 账户（scrypt 哈希，默认 root/root）
+- `user_modules(user_id, module)` — 普通用户的模块授权
+- `sessions(sid, user_id, ip, ua, expires_at)` — 登录会话
 
 > 想换库名/密码，改 `docbox/src/config.mjs` 的 `DB` 或设环境变量即可。
 
@@ -72,6 +103,7 @@ npm run smoke        # 86 项冒烟检查（需服务已启动）
 | 文档 | 3 | Word / Markdown / HTML / Excel / CSV → PDF，`.docx` → HTML / Markdown |
 | 表格 | 2 | Excel ⇄ CSV ⇄ JSON、多工作表拆分 |
 | 文字识别 | 1 | 图片 + 整本 PDF 的离线中文 OCR（tesseract.js v7 + chi_sim） |
+| 账户管理 | 1 | 创建账户、角色（管理员/普通用户）、按模块授权、启停用、重置密码 |
 | 音视频 | 18 | 转码、压缩、提取音轨、音频转码、截取、合并、GIF、抽帧、缩放、变速、响度、静音、旋转、水印、图片轮播、淡入淡出、探明信息、清元数据 |
 | 网络安全 | 16 | 端口扫描（64 并发/顶 1000 端口）、DNS、ping、traceroute、响应头评级、TLS 证书、RDAP、跳转链、耗时、目录探测、方法探测、服务指纹、本机网络、子域枚举、安全配置生成、IP 归属 |
 
@@ -84,14 +116,15 @@ docbox/
     config.mjs             # 端口/路径/DB/ffmpeg 路径/版本号
     tool-catalog.mjs       # 57 条套件工具元数据（PDF 23 / 音视频 18 / 网络 16）
     lib/
-      db.mjs               # mysql2 连接池 + 建表 + jobs/templates/reports/settings
+      db.mjs               # mysql2 连接池 + 建表 + jobs/templates/reports/settings/users/sessions/user_modules
+      auth.mjs             # scrypt 密码、Cookie 会话、模块权限中间件
       pdfops.mjs           # 23 项原生 PDF 实现
       pdf-render.mjs       # pdfjs + @napi-rs/canvas 渲染
       media.mjs            # ffmpeg/ffprobe 封装（18 项）
       netprobe.mjs         # 网络探测（16 项，纯 Node 实现）
       track.mjs            # 处理记录写入
-    routes/                # image / idphoto / pdf / suite / history / doc / sheet / ocr / meta
-  public/                  # 原生 ES 模块前端（core / tools / views），无构建步骤
+    routes/                # auth / accounts / image / idphoto / pdf / suite / history / doc / sheet / ocr / meta
+  public/                  # 原生 ES 模块前端（core / tools / views），含登录页与账户管理页，无构建步骤
   scripts/smoke.mjs        # 86 项冒烟测试
   testdata/                # 冒烟用样例（PDF/图片/音视频/表格/文档）
 version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码快照）
@@ -103,13 +136,14 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 
 ## 验证
 
-- `npm run smoke`：**86/86 通过**（基础 8 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 音视频 16 · 网络安全 15 · 数据库 9 · 其它 4）
+- `npm run smoke`：**110/110 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 音视频 16 · 网络安全 15 · 数据库 10 · 其它 19）
 - 浏览器（Edge/Chromium）实测：首页 75 张卡片、音视频/网络安全/历史页面、文件工具、JSON 结果面板均无控制台报错。
 
 ## 版本历史
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
+| 0.1.2 | 2026-10-20 | 登录 + 角色 + 模块授权（导航/路由/接口三重拦截）、账户管理页、展示卡片与模块一一对应 |
 | 0.1.1 | 2026-10-20 | 移除 Stirling-PDF 端口与 JDK；新增音视频 18 项、网络安全 16 项、原生 PDF 21 项；接入本地 MySQL；新增历史页 |
 | 0.1.0_beta | 2026-10-20 | 首个基线：Stirling 融合 + 7 套水印 + 离线 OCR + 前端模块化 |
 

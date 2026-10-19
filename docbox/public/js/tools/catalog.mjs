@@ -144,6 +144,72 @@ export const NATIVE_TOOLS = [
   },
 ];
 
+export const MODULE_NAV = {
+  image: { name: '图片工具', icon: 'image' },
+  pdf: { name: 'PDF 工具', icon: 'pages' },
+  doc: { name: '文档转换', icon: 'doc' },
+  sheet: { name: '表格处理', icon: 'sheet' },
+  ocr: { name: '文字识别', icon: 'scan' },
+  media: { name: '音视频工具', icon: 'video' },
+  net: { name: '网络安全', icon: 'shield' },
+  history: { name: '处理历史', icon: 'history' },
+  accounts: { name: '账户管理', icon: 'users' },
+};
+
+// 首页 / 分类页右侧展示卡片：与左侧模块一一对应
+export const MODULE_ART = {
+  home: [
+    { ico: 'PDF', title: '23 项 PDF 能力', sub: '合并 · 加密 · 页面 · 渲染' },
+    { ico: 'AV', title: '18 项音视频', sub: '转码 · 剪辑 · GIF · 提音' },
+    { ico: 'SEC', title: '16 项安全体检', sub: '端口 · 证书 · 配置审计' },
+  ],
+  image: [
+    { ico: 'WM', title: '工作水印', sub: '7 套模板 · 可调方向' },
+    { ico: 'ID', title: '证件照排版', sub: '10 种规格 · A4 直印' },
+    { ico: 'IMG', title: '压缩与转换', sub: 'WebP / AVIF · 批量' },
+  ],
+  pdf: [
+    { ico: 'MRG', title: '合并与拆分', sub: '按范围 / 每 N 页' },
+    { ico: 'AES', title: 'AES-256 加密', sub: '权限位 · 口令保护' },
+    { ico: 'PG', title: '页面组织', sub: '重排 · 旋转 · 拼版' },
+  ],
+  doc: [
+    { ico: 'DOC', title: '转成 PDF', sub: 'Word / MD / HTML' },
+    { ico: 'MD', title: '转 Markdown', sub: '保留标题与列表' },
+    { ico: 'EDGE', title: '本机排版', sub: '免装 Office' },
+  ],
+  sheet: [
+    { ico: 'XLS', title: '表格互转', sub: 'Excel ⇄ CSV ⇄ JSON' },
+    { ico: 'TAB', title: '多表拆分', sub: '每个工作表单独输出' },
+    { ico: 'API', title: '联调友好', sub: '对象数组 JSON' },
+  ],
+  ocr: [
+    { ico: 'OCR', title: '中文识别', sub: 'tesseract + chi_sim' },
+    { ico: 'PDF', title: '整本识别', sub: 'PDF 渲染后逐页 OCR' },
+    { ico: 'TXT', title: '一键导出', sub: '复制 / 下载 TXT' },
+  ],
+  media: [
+    { ico: 'MP4', title: '转码与压缩', sub: 'H.264 / H.265 · CRF' },
+    { ico: 'GIF', title: '动图与抽帧', sub: '片段转 GIF / 封面' },
+    { ico: 'AUD', title: '音轨处理', sub: '提取 · 转码 · 标准化' },
+  ],
+  net: [
+    { ico: 'SCAN', title: '端口扫描', sub: '64 并发 · 预设清单' },
+    { ico: 'TLS', title: '证书与指纹', sub: '有效期 · 颁发者' },
+    { ico: 'HDR', title: '响应头审计', sub: 'A–E 评级 · 修复建议' },
+  ],
+  history: [
+    { ico: 'LOG', title: '任务流水', sub: '每次处理自动入库' },
+    { ico: 'SEC', title: '安全报告', sub: '扫描结论留档' },
+    { ico: 'DB', title: '本地 MySQL', sub: '可筛选 · 可清空' },
+  ],
+  accounts: [
+    { ico: 'ADM', title: '角色管理', sub: '管理员 / 普通用户' },
+    { ico: 'KEY', title: '模块授权', sub: '按账户勾选可见模块' },
+    { ico: 'LCK', title: '接口级拦截', sub: '越权请求直接 403' },
+  ],
+};
+
 const SKIP_SUITE = new Set(['pdf-split', 'pdf-img2pdf']);
 
 export function buildCatalog(app) {

@@ -15,6 +15,9 @@ import { docRouter } from './src/routes/doc.mjs';
 import { sheetRouter } from './src/routes/sheet.mjs';
 import { ocrRouter } from './src/routes/ocr.mjs';
 import { metaRouter } from './src/routes/meta.mjs';
+import { authRouter } from './src/routes/auth.mjs';
+import { accountsRouter } from './src/routes/accounts.mjs';
+import { attachUser, requireAuth, requireModule, authEnabled } from './src/lib/auth.mjs';
 
 const app = express();
 app.disable('x-powered-by');
@@ -29,7 +32,14 @@ app.use('/files', express.static(OUTPUT_DIR, {
   },
 }));
 
+// ---- 认证与模块权限（数据库不可用时自动进入免登录模式）----
+app.use(attachUser);
+app.use(authRouter);
+app.use((req, res, next) => (req.path === '/api/health' ? next() : requireAuth(req, res, next)));
+app.use(requireModule);
+
 app.use(metaRouter);
+app.use(accountsRouter);
 app.use(imageRouter);
 app.use(idphotoRouter);
 app.use(pdfRouter);
@@ -65,6 +75,7 @@ const server = app.listen(PORT, HOST, async () => {
   const media = await mediaHealth();
   console.log('DocBox v' + APP_VERSION + ' listening on http://' + HOST + ':' + PORT);
   console.log('MySQL: ' + (db.ok ? 'CONNECTED v' + db.version + (db.passwordChanged !== null ? '（实际密码：' + db.passwordChanged + '）' : '') : 'UNAVAILABLE（历史记录功能降级）'));
+  console.log('AUTH: ' + (authEnabled() ? '启用（默认账号 root/root）' : '免登录模式（数据库不可用）'));
   console.log('FFmpeg: ' + (media.ok ? 'READY v' + media.version : 'MISSING'));
 });
 

@@ -50,6 +50,35 @@ const SCHEMA = [
     KEY idx_reports_tool (tool),
     KEY idx_reports_created (created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+  `CREATE TABLE IF NOT EXISTS users (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(64) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(16) NOT NULL DEFAULT 'user',
+    status VARCHAR(16) NOT NULL DEFAULT 'active',
+    display_name VARCHAR(64) NULL,
+    last_login_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_username (username)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+  `CREATE TABLE IF NOT EXISTS user_modules (
+    user_id INT UNSIGNED NOT NULL,
+    module VARCHAR(32) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, module),
+    KEY idx_um_user (user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+    sid CHAR(48) NOT NULL PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    ip VARCHAR(64) NULL,
+    ua VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    KEY idx_sessions_expire (expires_at),
+    KEY idx_sessions_user (user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
   `CREATE TABLE IF NOT EXISTS settings (
     k VARCHAR(64) NOT NULL PRIMARY KEY,
     v TEXT NULL,
@@ -98,6 +127,7 @@ export async function initDb() {
         "INSERT INTO settings (k, v) VALUES ('schema_version', '1'), ('installed_at', ?) ON DUPLICATE KEY UPDATE v = v",
         [new Date().toISOString()],
       );
+      await seedAdmin(handle.pool);
       state.pool = handle.pool;
       state.available = true;
       state.error = null;
@@ -233,4 +263,146 @@ export async function closeDb() {
   if (state.pool) await state.pool.end().catch(() => {});
   state.pool = null;
   state.available = false;
+}
+
+
+/* ------------------------------------------------------------------ *
+ * 账户、角色与会话（v0.1.2）
+ * ------------------------------------------------------------------ */
+
+async function seedAdmin(pool) {
+  const [rows] = await pool.query("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'");
+  if (rows[0]?.n > 0) return;
+  const hash = await hashPasswordLazy('root');
+  await pool.query(
+    "INSERT INTO users (username, password_hash, role, status, display_name) VALUES ('root', ?, 'admin', 'active', '超级管理员') ON DUPLICATE KEY UPDATE role = 'admin'",
+    [hash],
+  );
+  const [admin] = await pool.query("SELECT id FROM users WHERE username = 'root'");
+  if (admin[0]) {
+    for (const m of ['image', 'pdf', 'doc', 'sheet', 'ocr', 'media', 'net', 'history']) {
+      await pool.query('INSERT IGNORE INTO user_modules (user_id, module) VALUES (?, ?)', [admin[0].id, m]);
+    }
+  }
+}
+
+// 延迟导入，避免 db.mjs 与 auth.mjs 循环依赖
+let _hashPassword = null;
+async function hashPasswordLazy(pw) {
+  if (!_hashPassword) {
+    const mod = await import('./auth.mjs');
+    _hashPassword = mod.hashPassword;
+  }
+  return _hashPassword(pw);
+}
+
+export async function findUserByUsername(username) {
+  const rows = await query('SELECT * FROM users WHERE username = ? LIMIT 1', [String(username || '').slice(0, 64)]);
+  return rows[0] || null;
+}
+
+export async function findUserById(id) {
+  const rows = await query('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
+  return rows[0] || null;
+}
+
+export async function createUser({ username, passwordHash, role = 'user', displayName = null }) {
+  const [res] = await state.pool.query(
+    'INSERT INTO users (username, password_hash, role, display_name) VALUES (?,?,?,?)',
+    [String(username).slice(0, 64), passwordHash, role === 'admin' ? 'admin' : 'user', displayName],
+  );
+  return res.insertId;
+}
+
+export async function listUsers() {
+  const users = await query(
+    'SELECT id, username, role, status, display_name AS displayName, last_login_at AS lastLoginAt, created_at AS createdAt FROM users ORDER BY (role = \'admin\') DESC, id ASC',
+  );
+  const mods = await query('SELECT user_id AS userId, module FROM user_modules');
+  const map = new Map();
+  for (const m of mods) {
+    if (!map.has(m.userId)) map.set(m.userId, []);
+    map.get(m.userId).push(m.module);
+  }
+  return users.map((u) => ({ ...u, modules: map.get(u.id) || [] }));
+}
+
+export async function updateUser(id, { role, status, displayName }) {
+  const sets = [];
+  const params = [];
+  if (role) { sets.push('role = ?'); params.push(role === 'admin' ? 'admin' : 'user'); }
+  if (status) { sets.push('status = ?'); params.push(status === 'disabled' ? 'disabled' : 'active'); }
+  if (displayName !== undefined) { sets.push('display_name = ?'); params.push(displayName === null ? null : String(displayName).slice(0, 64)); }
+  if (!sets.length) return false;
+  params.push(id);
+  await query('UPDATE users SET ' + sets.join(', ') + ' WHERE id = ?', params);
+  return true;
+}
+
+export async function updateUserPassword(id, passwordHash) {
+  await query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, id]);
+  return true;
+}
+
+export async function deleteUser(id) {
+  await query('DELETE FROM user_modules WHERE user_id = ?', [id]);
+  await query('DELETE FROM sessions WHERE user_id = ?', [id]);
+  await query('DELETE FROM users WHERE id = ?', [id]);
+  return true;
+}
+
+export async function setUserModules(userId, modules) {
+  const list = [...new Set((modules || []).map((m) => String(m).slice(0, 32)))];
+  await query('DELETE FROM user_modules WHERE user_id = ?', [userId]);
+  for (const m of list) await query('INSERT IGNORE INTO user_modules (user_id, module) VALUES (?, ?)', [userId, m]);
+  return list;
+}
+
+export async function getUserModules(userId) {
+  const rows = await query('SELECT module FROM user_modules WHERE user_id = ?', [userId]);
+  return rows.map((r) => r.module);
+}
+
+export async function countAdmins() {
+  const rows = await query("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND status = 'active'");
+  return rows[0]?.n || 0;
+}
+
+export async function createSession({ sid, userId, ip, ua, ttlMs }) {
+  const expires = new Date(Date.now() + ttlMs);
+  await query('INSERT INTO sessions (sid, user_id, ip, ua, expires_at) VALUES (?,?,?,?,?)', [
+    sid, userId, ip ? String(ip).slice(0, 64) : null, ua ? String(ua).slice(0, 255) : null, expires,
+  ]);
+  return true;
+}
+
+export async function getSessionUser(sid) {
+  const rows = await query(
+    `SELECT u.id, u.username, u.role, u.status, u.display_name AS displayName, u.last_login_at AS lastLoginAt,
+            s.expires_at AS expiresAt
+     FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.sid = ? AND s.expires_at > NOW() AND u.status = 'active' LIMIT 1`,
+    [sid],
+  );
+  return rows[0] || null;
+}
+
+export async function deleteSession(sid) {
+  await query('DELETE FROM sessions WHERE sid = ?', [sid]);
+  return true;
+}
+
+export async function deleteUserSessions(userId) {
+  await query('DELETE FROM sessions WHERE user_id = ?', [userId]);
+  return true;
+}
+
+export async function touchLogin(userId) {
+  await query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [userId]);
+  return true;
+}
+
+export async function cleanupSessions() {
+  await query('DELETE FROM sessions WHERE expires_at <= NOW()');
+  return true;
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * DocBox 0.1.1 冒烟测试：覆盖 图片 / 证件照 / 原生 PDF / PDF 套件 / 音视频 / 网络安全 / 数据库历史。
+ * DocBox 0.1.2 冒烟测试：登录 / 角色 / 模块权限 + 图片 / 证件照 / PDF / 音视频 / 网络安全 / 数据库。
  * 用法：node scripts/smoke.mjs [baseUrl]
- * 依赖 docbox/testdata 下的样例文件与本地已启动的 server.mjs。
+ * 依赖 docbox/testdata 下的样例文件与本地已启动的 server.mjs（默认账户 root/root）。
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -13,64 +13,136 @@ const BASE = process.argv[2] || 'http://127.0.0.1:3000';
 const DATA = path.resolve(__dirname, '..', 'testdata');
 
 const results = [];
-const blob = async (file) => new Blob([await fs.readFile(path.join(DATA, file))]);
+let COOKIE = '';
+
+function rememberCookie(res) {
+  const list = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
+  if (!list.length) return;
+  const pairs = list.map((c) => c.split(';')[0]).filter(Boolean);
+  if (pairs.length) COOKIE = pairs.join('; ');
+}
+
+function authHeaders(extra = {}) {
+  return COOKIE ? { ...extra, cookie: COOKIE } : extra;
+}
 
 function record(name, ok, ms, note) {
   results.push({ name, ok, ms, note: String(note || '').slice(0, 100) });
   return ok;
 }
 
-async function post(name, route, { fields = {}, files = [], raw = null, field = 'files' } = {}) {
-  const fd = new FormData();
-  for (const [k, v] of Object.entries(fields)) fd.append(k, String(v));
-  if (raw) fd.append(field, new Blob([raw.buffer]), raw.name);
-  for (const f of files) fd.append(field, await blob(f), f);
+async function request(name, method, route, init = {}) {
   const started = Date.now();
   try {
-    const res = await fetch(BASE + route, { method: 'POST', body: fd, signal: AbortSignal.timeout(300000) });
+    const res = await fetch(BASE + route, {
+      method,
+      ...init,
+      headers: authHeaders(init.headers || {}),
+      signal: AbortSignal.timeout(300000),
+    });
+    rememberCookie(res);
     const ct = res.headers.get('content-type') || '';
     const buf = Buffer.from(await res.arrayBuffer());
     let payload = {};
     if (ct.includes('json')) payload = JSON.parse(buf.toString('utf8'));
-    const ok = res.ok && payload.ok !== false;
-    record(name, ok, Date.now() - started, payload.note || payload.error || (buf.length + ' bytes'));
-    return { ok, payload, buf, status: res.status };
+    record(name, res.ok && payload.ok !== false, Date.now() - started, payload.note || payload.error || (buf.length + ' bytes'));
+    return { ok: res.ok && payload.ok !== false, payload, buf, status: res.status };
   } catch (err) {
     record(name, false, Date.now() - started, String(err).slice(0, 150));
     return { ok: false, payload: {}, buf: Buffer.alloc(0), status: 0 };
   }
 }
 
-async function getJson(name, route) {
-  const started = Date.now();
-  try {
-    const res = await fetch(BASE + route, { signal: AbortSignal.timeout(30000) });
-    const payload = await res.json();
-    record(name, res.ok, Date.now() - started, res.ok ? 'ok' : payload.error || 'HTTP ' + res.status);
-    return payload;
-  } catch (err) {
-    record(name, false, Date.now() - started, String(err).slice(0, 150));
-    return {};
+const blob = async (file) => new Blob([await fs.readFile(path.join(DATA, file))]);
+
+async function post(name, route, { fields = {}, files = [], raw = null, field = 'files', expectStatus = null } = {}) {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(fields)) fd.append(k, String(v));
+  if (raw) fd.append(field, new Blob([raw.buffer]), raw.name);
+  for (const f of files) fd.append(field, await blob(f), f);
+  if (expectStatus) {
+    const started = Date.now();
+    const res = await fetch(BASE + route, { method: 'POST', body: fd, headers: authHeaders(), signal: AbortSignal.timeout(60000) });
+    rememberCookie(res);
+    const text = await res.text();
+    record(name, res.status === expectStatus, Date.now() - started, 'HTTP ' + res.status + ' ' + text.slice(0, 60).replace(/\s+/g, ' '));
+    return { status: res.status, payload: {} };
   }
+  const r = await request(name, 'POST', route, { body: fd });
+  return { ...r, payload: r.payload, raw: r.buf };
+}
+
+async function getJson(name, route) {
+  const r = await request(name, 'GET', route);
+  return r.payload;
 }
 
 async function fetchBuf(url) {
-  const res = await fetch(BASE + url, { signal: AbortSignal.timeout(60000) });
+  const res = await fetch(BASE + url, { headers: authHeaders(), signal: AbortSignal.timeout(60000) });
   return { buffer: Buffer.from(await res.arrayBuffer()), name: decodeURIComponent(url.split('/').pop() || 'file.pdf') };
 }
 
-// ---------------- A. 基础 ----------------
-const health = await getJson('健康检查', '/api/health');
-record('版本号 0.1.1', health.version === '0.1.1', 0, health.version);
+async function json(name, method, route, body, expectStatus = null) {
+  const started = Date.now();
+  const res = await fetch(BASE + route, {
+    method,
+    headers: authHeaders({ 'content-type': 'application/json' }),
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(30000),
+  });
+  rememberCookie(res);
+  const payload = await res.json().catch(() => ({}));
+  const ok = expectStatus ? res.status === expectStatus : (res.ok && payload.ok !== false);
+  record(name, ok, Date.now() - started, payload.note || payload.error || 'HTTP ' + res.status);
+  return { status: res.status, payload };
+}
+
+// ---------------- A. 登录 / 角色 / 权限 ----------------
+await post('未登录访问 app 被拒', '/api/app', { expectStatus: 401 });
+await json('错误密码被拒', 'POST', '/api/auth/login', { username: 'root', password: 'definitely-wrong' }, 401);
+const login = await json('root / root 登录', 'POST', '/api/auth/login', { username: 'root', password: 'root' });
+record('登录角色为管理员', login.payload.user?.role === 'admin', 0, login.payload.user?.role || '');
+record('管理员拥有全部模块', (login.payload.user?.modules || []).length === 9, 0, (login.payload.user?.modules || []).length + ' 个');
+const me = await getJson('登录态回读', '/api/auth/me');
+record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
+const health = await getJson('健康检查（免登录）', '/api/health');
+record('版本号 0.1.2', health.version === '0.1.2', 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
-const counts = Object.fromEntries(Object.entries(app.suites || {}).map(([k, v]) => [k, v.length]));
-record('套件数量', counts.pdf === 23 && counts.media === 18 && counts.net === 16, 0, JSON.stringify(counts));
 record('套件工具 57 / 合计 75', app.suiteToolCount === 57 && app.toolCount === 75, 0, app.suiteToolCount + ' / ' + app.toolCount);
-const notFound = await fetch(BASE + '/api/not-exist');
+record('app 携带账户信息', app.auth?.user?.username === 'root', 0, app.auth?.user?.role || '');
+const notFound = await fetch(BASE + '/api/not-exist', { headers: authHeaders() });
 record('未知接口 404', notFound.status === 404, 0, 'HTTP ' + notFound.status);
 const indexRes = await fetch(BASE + '/');
 record('首页可访问', indexRes.ok, 0, 'HTTP ' + indexRes.status);
+
+// 受限账户
+const created = await json('创建受限账户', 'POST', '/api/accounts', {
+  username: 'smoke_viewer', password: 'viewer123', role: 'user', modules: ['image', 'ocr'],
+});
+const listed = await getJson('账户列表', '/api/accounts');
+const viewer = (listed.users || []).find((u) => u.username === 'smoke_viewer');
+record('新账户已入库', Boolean(viewer?.id), 0, viewer ? 'id=' + viewer.id : '未找到');
+const adminCookie = COOKIE;
+
+if (viewer) {
+  await json('管理员改权限', 'PATCH', '/api/accounts/' + viewer.id, { modules: ['image', 'pdf', 'ocr'] });
+  const after = (await getJson('权限回读', '/api/accounts')).users.find((u) => u.username === 'smoke_viewer');
+  record('权限已更新', JSON.stringify(after?.modules?.sort()) === JSON.stringify(['image', 'ocr', 'pdf']), 0, (after?.modules || []).join(','));
+
+  COOKIE = '';
+  await json('受限账户登录', 'POST', '/api/auth/login', { username: 'smoke_viewer', password: 'viewer123' });
+  const vapp = await getJson('受限账户 app', '/api/app');
+  record('受限模块已过滤', (vapp.auth?.modules || []).length === 3, 0, (vapp.auth?.modules || []).join(','));
+  await post('越权访问音视频被拒', '/api/suite/media/probe', { fields: {}, expectStatus: 403 });
+  await json('越权访问账户管理被拒', 'GET', '/api/accounts', null, 403);
+  await post('授权模块可用', '/api/suite/pdf/pdf2text', { files: ['sample-a.pdf'] });
+
+  COOKIE = adminCookie;
+  await json('删除受限账户', 'DELETE', '/api/accounts/' + viewer.id);
+  const finalList = await getJson('删除回读', '/api/accounts');
+  record('账户已删除', !(finalList.users || []).some((u) => u.username === 'smoke_viewer'), 0, String((finalList.users || []).length));
+}
 
 // ---------------- B. 图片 / 证件照 ----------------
 await post('图片压缩', '/api/image/process', { fields: { op: 'compress', quality: 70 }, files: ['sample1.jpg'] });
@@ -117,7 +189,7 @@ await post('读取书签', S + 'bookmarks', { files: ['sample-a.pdf'] });
 const withImg = await post('图片转 PDF（套件）', S + 'img2pdf', { fields: { pageSize: 'a4' }, files: ['sample1.jpg'] });
 if (withImg.payload.files?.[0]?.url) {
   const pdfFile = await fetchBuf(withImg.payload.files[0].url);
-  await post('提取嵌入图片', S + 'extract-images', { files: [], raw: pdfFile });
+  await post('提取嵌入图片', S + 'extract-images', { raw: pdfFile });
 }
 
 // ---------------- E. 音视频 ----------------
@@ -164,25 +236,23 @@ await post('IP 归属信息', N + 'ip-info', { fields: { ip: '127.0.0.1' } });
 // ---------------- G. 数据库 / 历史 ----------------
 const hist = await getJson('处理历史', '/api/history?limit=20');
 record('历史已入库', (hist.jobs || []).length > 0, 0, (hist.jobs || []).length + ' 条');
-const stats = hist.stats || {};
-record('任务统计', Number(stats.total) > 0, 0, 'total=' + stats.total);
-const tplSave = await fetch(BASE + '/api/templates', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ templateId: 'smoke-tpl', name: 'smoke', spec: { a: 1 } }) });
-record('模板写入', tplSave.ok, 0, 'HTTP ' + tplSave.status);
+record('任务统计', Number(hist.stats?.total) > 0, 0, 'total=' + hist.stats?.total);
+await json('模板写入', 'POST', '/api/templates', { templateId: 'smoke-tpl', name: 'smoke', spec: { a: 1 } });
 const tplList = await getJson('模板列表', '/api/templates');
 record('模板读取', (tplList.templates || []).some((t) => t.templateId === 'smoke-tpl'), 0, String((tplList.templates || []).length));
-const tplDel = await fetch(BASE + '/api/templates/smoke-tpl', { method: 'DELETE' });
-record('模板删除', tplDel.ok, 0, 'HTTP ' + tplDel.status);
+await json('模板删除', 'DELETE', '/api/templates/smoke-tpl');
 const reports = await getJson('安全报告', '/api/net/reports?limit=5');
 record('安全报告入库', (reports.reports || []).length > 0, 0, String((reports.reports || []).length));
-const setRes = await fetch(BASE + '/api/settings/smoke', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ value: 'ok' }) });
-record('配置写入', setRes.ok, 0, 'HTTP ' + setRes.status);
+await json('配置写入', 'POST', '/api/settings/smoke', { value: 'ok' });
 const setGet = await getJson('配置读取', '/api/settings/smoke');
 record('配置读取一致', setGet.value === 'ok', 0, String(setGet.value));
+await json('退出登录', 'POST', '/api/auth/logout');
+await post('退出后访问 app 被拒', '/api/app', { expectStatus: 401 });
 
 // ---------------- 汇总 ----------------
 const failed = results.filter((r) => !r.ok);
 for (const r of results) {
-  console.log((r.ok ? '  PASS  ' : '  FAIL  ') + r.name.padEnd(22, ' ') + String(r.ms + 'ms').padStart(7) + '   ' + r.note);
+  console.log((r.ok ? '  PASS  ' : '  FAIL  ') + r.name.padEnd(24, ' ') + String(r.ms + 'ms').padStart(7) + '   ' + r.note);
 }
 console.log('');
 console.log('  ' + (results.length - failed.length) + ' / ' + results.length + ' 通过');

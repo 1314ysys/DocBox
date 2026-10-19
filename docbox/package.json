@@ -1,7 +1,7 @@
 {
   "name": "docbox",
-  "version": "0.1.1",
-  "description": "本地文档与图像工作台：7 套工作水印、证件照排版、23 项原生 PDF 能力、18 项音视频处理、16 项网络与安全体检、离线 OCR，任务记录写入本地 MySQL。",
+  "version": "0.1.2",
+  "description": "本地文档与图像工作台：账户角色与模块授权、7 套工作水印、证件照排版、23 项原生 PDF、18 项音视频、16 项网络体检、离线 OCR，任务记录写入本地 MySQL。",
   "main": "server.mjs",
   "type": "module",
   "engines": {

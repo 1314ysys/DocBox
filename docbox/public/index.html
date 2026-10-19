@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>文档百宝箱 · DocBox</title>
-  <meta name="description" content="本地运行的图片与文档处理工具箱：7 套工作水印、证件照 A4 排版、图片压缩裁剪、PDF 合并拆分、Word/Excel/Markdown 转 PDF、离线 OCR，以及 Stirling-PDF 专业套件。">
+  <meta name="description" content="本地运行的文档 / 图片 / 音视频 / 网络安全工具箱：账户角色与模块授权、7 套工作水印、证件照排版、23 项原生 PDF、18 项音视频、16 项网络体检、离线 OCR，任务入库本地 MySQL。">
   <link rel="stylesheet" href="/styles.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Ctext x='32' y='43' font-size='30' text-anchor='middle' fill='white' font-family='Arial'%3EDB%3C/text%3E%3C/svg%3E">
 </head>
@@ -19,28 +19,35 @@
       <input id="searchInput" type="search" placeholder="搜索工具：水印、证件照、PDF 拆分、OCR…" autocomplete="off">
     </div>
     <div class="top-actions">
-      <span id="stirlingPill" class="pill pill-muted"><i></i>Stirling-PDF 检测中</span>
-      <a id="stirlingOpen" class="btn btn-ghost btn-sm" href="http://127.0.0.1:8090/" target="_blank" rel="noopener">打开 PDF 套件 ↗</a>
+      <span id="sbStatus" class="pill pill-muted"><i></i>检测中</span>
+      <div class="user-menu">
+        <button class="user-chip" id="userChip" type="button"><span class="u-avatar">?</span><span class="u-name">未登录</span></button>
+        <div class="user-pop" id="userPop" hidden></div>
+      </div>
     </div>
   </header>
+
+  <div id="loginScreen" class="login-screen" hidden></div>
 
   <div class="app">
     <aside class="sidebar">
       <nav id="sideNav">
         <a class="nav-item active" data-nav="home" href="#/"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"></path><path d="M5 10v10h14V10"></path></svg></span>首页</a>
         <div class="nav-label">工作台</div>
-        <a class="nav-item" data-nav="image" href="#/cat/image"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9.5" r="1.8"></circle><path d="m21 15-4.5-4.5L7 20"></path></svg></span>图片工具</a>
-        <a class="nav-item" data-nav="pdf" href="#/cat/pdf"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6M9 17h4"></path></svg></span>PDF 工具</a>
-        <a class="nav-item" data-nav="doc" href="#/cat/doc"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="M4 9h16M8 5v14"></path></svg></span>文档转换</a>
-        <a class="nav-item" data-nav="sheet" href="#/cat/sheet"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M9 9v11"></path></svg></span>表格处理</a>
-        <a class="nav-item" data-nav="ocr" href="#/cat/ocr"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3"></path><path d="M4 12h16"></path></svg></span>文字识别</a>
-        <a class="nav-item" data-nav="media" href="#/cat/media"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="2"></rect><path d="m16 10 6-3v10l-6-3z"></path></svg></span>音视频工具</a>
-        <a class="nav-item" data-nav="net" href="#/cat/net"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path><path d="M9 12l2 2 4-4"></path></svg></span>网络安全</a>
+        <a class="nav-item" data-nav="image" data-module="image" href="#/cat/image"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9.5" r="1.8"></circle><path d="m21 15-4.5-4.5L7 20"></path></svg></span>图片工具</a>
+        <a class="nav-item" data-nav="pdf" data-module="pdf" href="#/cat/pdf"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6M9 17h4"></path></svg></span>PDF 工具</a>
+        <a class="nav-item" data-nav="doc" data-module="doc" href="#/cat/doc"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="M4 9h16M8 5v14"></path></svg></span>文档转换</a>
+        <a class="nav-item" data-nav="sheet" data-module="sheet" href="#/cat/sheet"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M9 9v11"></path></svg></span>表格处理</a>
+        <a class="nav-item" data-nav="ocr" data-module="ocr" href="#/cat/ocr"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3"></path><path d="M4 12h16"></path></svg></span>文字识别</a>
+        <a class="nav-item" data-nav="media" data-module="media" href="#/cat/media"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="2"></rect><path d="m16 10 6-3v10l-6-3z"></path></svg></span>音视频工具</a>
+        <a class="nav-item" data-nav="net" data-module="net" href="#/cat/net"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path><path d="M9 12l2 2 4-4"></path></svg></span>网络安全</a>
         <div class="nav-label">记录</div>
-        <a class="nav-item" data-nav="history" href="#/history"><span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg></span>处理历史</a>
+        <a class="nav-item" data-nav="history" data-module="history" href="#/history"><span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg></span>处理历史</a>
+        <div class="nav-label">系统</div>
+        <a class="nav-item" data-nav="accounts" data-module="accounts" id="navAccounts" href="#/accounts"><span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20c0-3.3 2.5-5.4 5.5-5.4s5.5 2.1 5.5 5.4"></path><path d="M16.5 11.5h4M18.5 9.5v4"></path></svg></span>账户管理</a>
       </nav>
       <div class="side-note"><strong>纯本地处理</strong><span>文件只在本机内存与磁盘中流转，不会上传到互联网。</span></div>
-      <div class="side-version">DocBox <span data-version>v0.1.0_beta</span> · Stirling-PDF v3.2.0</div>
+      <div class="side-version">DocBox <span data-version>v0.1.1</span> · 本地 MySQL · 角色权限</div>
     </aside>
 
     <main class="main">
@@ -74,28 +81,12 @@
         </div>
         <div id="toolSections" class="tool-sections"></div>
 
-        <div class="stirling-banner">
-          <div class="sb-left">
-            <div class="sb-logo">SP</div>
-            <div>
-              <h3>Stirling-PDF 专业套件 <span class="tag">MIT</span></h3>
-              <p>23 项进阶能力已接入：旋转、裁切、拼版、水印、加密解密、元数据、页面重排、PDF ⇄ 图片、书签提取等。</p>
-            </div>
-          </div>
-          <div class="sb-right">
-            <span id="sbStatus" class="pill pill-muted"><i></i>检测中</span>
-            <a class="btn btn-primary btn-sm" href="#/cat/stirling">查看套件工具</a>
-          </div>
-        </div>
-
         <div class="recent-block">
           <div class="section-head"><div><span class="eyebrow">HISTORY</span><h2>最近处理</h2></div><button id="recentClear" class="btn btn-ghost btn-sm">清空记录</button></div>
           <div id="recentList" class="recent-list"></div>
         </div>
 
-        <footer class="footer">
-          本地部署 · <a href="https://github.com/Stirling-Tools/Stirling-PDF" target="_blank" rel="noopener">Stirling-PDF</a> (MIT) + 自研 DocBox · 文件最多保留 6 小时，请及时下载
-        </footer>
+        <footer class="footer">本地部署 · 自研 DocBox · 账户与历史保存在本机 MySQL · 文件最多保留 6 小时，请及时下载</footer>
       </section>
 
       <section id="view-tool" class="view" hidden></section>
@@ -316,6 +307,7 @@
         </div>
       </section>
             <section id="view-history" class="view" hidden></section>
+      <section id="view-accounts" class="view" hidden></section>
       </main>
   </div>
 

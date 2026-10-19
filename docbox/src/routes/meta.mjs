@@ -20,7 +20,7 @@ metaRouter.get('/api/health', ah(async (_req, res) => {
   });
 }));
 
-metaRouter.get('/api/app', ah(async (_req, res) => {
+metaRouter.get('/api/app', ah(async (req, res) => {
   res.json({
     ok: true,
     version: APP_VERSION,
@@ -33,6 +33,11 @@ metaRouter.get('/api/app', ah(async (_req, res) => {
     capabilities: { font: Boolean(findFont()), edge: Boolean(findEdge()) },
     db: dbState(),
     media: await mediaHealth(),
+    auth: {
+      enabled: dbState().available,
+      user: req.user ? { id: req.user.id, username: req.user.username, role: req.user.role, displayName: req.user.displayName || '' } : null,
+      modules: req.userModules || [],
+    },
   });
 }));
 
