@@ -56,7 +56,7 @@ function filterTelnet(buf, reply) {
 
 export function listSessions() {
   return [...sessions.values()].map((s) => ({
-    id: s.id, protocol: s.protocol, addr: s.addr, claimed: s.claimed, closed: s.closed, createdAt: s.createdAt,
+    id: s.id, protocol: s.protocol, addr: s.addr, claimed: s.claimed, closed: s.closed, createdAt: s.createdAt, cols: s.cols, rows: s.rows,
   }));
 }
 
