@@ -69,6 +69,23 @@ const SCHEMA = [
     PRIMARY KEY (user_id, module),
     KEY idx_um_user (user_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+  `CREATE TABLE IF NOT EXISTS stt_jobs (
+    id CHAR(16) NOT NULL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'queued',
+    progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    language VARCHAR(8) NOT NULL DEFAULT 'zh',
+    mode VARCHAR(16) NOT NULL DEFAULT 'offline',
+    duration_ms INT UNSIGNED NULL,
+    text LONGTEXT NULL,
+    segments LONGTEXT NULL,
+    file_path VARCHAR(512) NULL,
+    error VARCHAR(512) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_stt_status (status),
+    KEY idx_stt_created (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
   `CREATE TABLE IF NOT EXISTS sessions (
     sid CHAR(48) NOT NULL PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
@@ -404,5 +421,47 @@ export async function touchLogin(userId) {
 
 export async function cleanupSessions() {
   await query('DELETE FROM sessions WHERE expires_at <= NOW()');
+  return true;
+}
+
+/* ---------------- 语音转写任务 ---------------- */
+export async function createSttJob({ id, name, language, mode, filePath }) {
+  if (!state.pool) return false;
+  await state.pool.execute(
+    'INSERT INTO stt_jobs (id, name, status, progress, language, mode, file_path) VALUES (?,?,?,?,?,?,?)',
+    [id, name, 'queued', 0, language, mode, filePath || null],
+  );
+  return true;
+}
+
+export async function updateSttJob(id, patch) {
+  if (!state.pool) return false;
+  const keys = Object.keys(patch);
+  if (!keys.length) return false;
+  await state.pool.execute(
+    'UPDATE stt_jobs SET ' + keys.map((k) => k + ' = ?').join(', ') + ' WHERE id = ?',
+    [...keys.map((k) => patch[k]), id],
+  );
+  return true;
+}
+
+export async function getSttJob(id) {
+  if (!state.pool) return null;
+  const [rows] = await state.pool.execute('SELECT * FROM stt_jobs WHERE id = ?', [id]);
+  return rows[0] || null;
+}
+
+export async function listSttJobs(limit = 50) {
+  if (!state.pool) return [];
+  const [rows] = await state.pool.execute(
+    'SELECT id, name, status, progress, language, mode, duration_ms, LEFT(text, 200) AS excerpt, file_path, error, created_at FROM stt_jobs ORDER BY created_at DESC LIMIT ?',
+    [limit],
+  );
+  return rows;
+}
+
+export async function deleteSttJob(id) {
+  if (!state.pool) return false;
+  await state.pool.execute('DELETE FROM stt_jobs WHERE id = ?', [id]);
   return true;
 }

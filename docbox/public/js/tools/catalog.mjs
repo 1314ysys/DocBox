@@ -5,7 +5,7 @@ export const CATS = {
   pdf: { name: 'PDF', desc: '合并拆分 · 页面组织 · 加密 · 提取 · 信息', icon: 'pages' },
   doc: { name: '文档', desc: 'Word / Excel / PPT / Markdown / TXT / HTML 与 PDF 互转 · 公文排版', icon: 'doc' },
   sheet: { name: '表格', desc: 'Excel / CSV / JSON 互转', icon: 'sheet' },
-  ocr: { name: '文字识别', desc: '图片与 PDF 的离线 OCR（中文）', icon: 'scan' },
+  ocr: { name: 'OCR 与转写', desc: '离线中文 OCR · 音视频 Whisper 转写 · 麦克风实时转写', icon: 'scan' },
   media: { name: '音视频', desc: '转码 · 压缩 · 剪辑 · 合并 · GIF · 提音 · 水印', icon: 'video' },
   net: { name: '网络安全', desc: '连通性 · 端口 · DNS · 证书 · 配置审计 · 信息收集', icon: 'shield' },
 };
@@ -113,7 +113,8 @@ export const NATIVE_TOOLS = [
     fields: [FIELD('level', '压缩强度', 'range', { min: 1, max: 9, value: 5 })],
   },
   { id: 'pdf-extract', cat: 'pdf', name: 'PDF 拆解导出', icon: 'eye', badge: '前端', route: '#/extract', desc: '导出页面图片、提取文字、查看页数' },
-  { id: 'ocr', cat: 'ocr', name: 'OCR 文字识别', icon: 'scan', badge: '离线', route: '#/ocr', desc: '图片识别与 PDF 整本识别，支持导出 TXT' },
+  { id: 'ocr', cat: 'ocr', name: 'OCR 与转写', icon: 'scan', badge: '离线', route: '#/ocr', desc: '图片 OCR · PDF 整本识别 · 音视频 Whisper 转写 · 麦克风实时转写' },
+  { id: 'net-terminal', cat: 'net', name: 'SSH / Telnet 终端', icon: 'terminal', badge: '网页直连', route: '#/terminal', desc: '浏览器里直连服务器：SSH（22）与 Telnet（23），多会话标签，断线自动回收' },
   {
     id: 'doc-word-to-pdf', cat: 'doc', name: 'Word 转 PDF', icon: 'doc', badge: '本地',
     desc: 'Word(.docx) 转 PDF，保留标题、列表、表格与图片',
@@ -212,7 +213,7 @@ export const MODULE_NAV = {
   pdf: { name: 'PDF 工具', icon: 'pages' },
   doc: { name: '文档转换', icon: 'doc' },
   sheet: { name: '表格处理', icon: 'sheet' },
-  ocr: { name: '文字识别', icon: 'scan' },
+  ocr: { name: 'OCR 与转写', icon: 'scan' },
   media: { name: '音视频工具', icon: 'video' },
   net: { name: '网络安全', icon: 'shield' },
   history: { name: '处理历史', icon: 'history' },
@@ -258,12 +259,12 @@ export const MODULE_ART = {
   ],
   net: [
     { ico: 'SCAN', title: '端口扫描', sub: '64 并发 · 预设清单' },
-    { ico: 'TLS', title: '证书与指纹', sub: '有效期 · 颁发者' },
+    { ico: 'TERM', title: 'SSH / Telnet', sub: '浏览器直连 · 多会话' },
     { ico: 'HDR', title: '响应头审计', sub: 'A–E 评级 · 修复建议' },
   ],
   history: [
     { ico: 'LOG', title: '任务流水', sub: '每次处理自动入库' },
-    { ico: 'SEC', title: '安全报告', sub: '扫描结论留档' },
+    { ico: 'STT', title: '转写任务', sub: '离线队列 · 事后下载' },
     { ico: 'DB', title: '本地 MySQL', sub: '可筛选 · 可清空' },
   ],
   accounts: [

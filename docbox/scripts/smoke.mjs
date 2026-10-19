@@ -106,10 +106,10 @@ record('管理员拥有全部模块', (login.payload.user?.modules || []).length
 const me = await getJson('登录态回读', '/api/auth/me');
 record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
 const health = await getJson('健康检查（免登录）', '/api/health');
-record('版本号 0.1.5', health.version === '0.1.5', 0, health.version);
+record('版本号 0.1.6', health.version === '0.1.6', 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
-record('套件 57 + 自研 32 - 重复 2 = 87', app.suiteToolCount === 57 && app.nativeToolCount === 32 && app.toolCount === 87, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');
+record('套件 57 + 自研 33 - 重复 2 = 88', app.suiteToolCount === 57 && app.nativeToolCount === 33 && app.toolCount === 88, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');
 record('app 携带账户信息', app.auth?.user?.username === 'root', 0, app.auth?.user?.role || '');
 const notFound = await fetch(BASE + '/api/not-exist', { headers: authHeaders() });
 record('未知接口 404', notFound.status === 404, 0, 'HTTP ' + notFound.status);
@@ -286,6 +286,33 @@ record('安全报告入库', (reports.reports || []).length > 0, 0, String((repo
 await json('配置写入', 'POST', '/api/settings/smoke', { value: 'ok' });
 const setGet = await getJson('配置读取', '/api/settings/smoke');
 record('配置读取一致', setGet.value === 'ok', 0, String(setGet.value));
+
+// ---------------- 0.1.6 SSH / Telnet 终端 ----------------
+await json('终端连接被拒有提示', 'POST', '/api/terminal/connect', { protocol: 'ssh', host: '127.0.0.1', port: 9, username: 'nobody', password: 'x' }, 502);
+const termList = await getJson('终端会话列表', '/api/terminal/sessions');
+record('终端会话列表可用', Array.isArray(termList.sessions), 0, String((termList.sessions || []).length));
+await json('关闭不存在的终端会话', 'POST', '/api/terminal/close', { id: 'none' });
+
+// ---------------- 0.1.6 语音转写 ----------------
+const sttStatus = await getJson('转写状态', '/api/stt/status');
+record('转写模型信息', sttStatus.model === 'Xenova/whisper-tiny', 0, sttStatus.model + ' · ' + (sttStatus.mirror || ''));
+const quick = await post('在线转写（中文）', '/api/stt/quick', { field: 'file', fields: { language: 'zh' }, files: ['speech-zh.wav'] });
+record('在线转写返回文本', String(quick.payload.text || '').length >= 4, 0, String(quick.payload.text || '').slice(0, 24));
+const sttJob = await post('创建离线转写任务', '/api/stt/job', { field: 'file', fields: { language: 'zh' }, files: ['speech-zh.wav'] });
+record('离线任务有 ID', Boolean(sttJob.payload.id), 0, sttJob.payload.id || '');
+let sttState = null;
+for (let i = 0; i < 90; i++) {
+  await new Promise((r) => setTimeout(r, 500));
+  const rr = await fetch(BASE + '/api/stt/job/' + sttJob.payload.id, { headers: authHeaders(), signal: AbortSignal.timeout(20000) });
+  sttState = (await rr.json().catch(() => ({}))).job;
+  if (sttState && (sttState.status === 'done' || sttState.status === 'error')) break;
+}
+record('离线任务完成', sttState?.status === 'done', 0, String(sttState?.text || sttState?.error || '').slice(0, 24));
+const sttList = await getJson('转写任务列表', '/api/stt/jobs');
+record('转写任务入库', (sttList.jobs || []).some((j) => j.id === sttJob.payload.id), 0, String((sttList.jobs || []).length));
+const sttChunk = await post('实时片段转写', '/api/stt/chunk', { field: 'file', fields: { language: 'zh' }, files: ['speech-zh.wav'] });
+record('实时片段返回文本', String(sttChunk.payload.text || '').length >= 4, 0, String(sttChunk.payload.text || '').slice(0, 20));
+await json('删除转写任务', 'DELETE', '/api/stt/job/' + sttJob.payload.id);
 await json('退出登录', 'POST', '/api/auth/logout');
 await post('退出后访问 app 被拒', '/api/app', { expectStatus: 401 });
 

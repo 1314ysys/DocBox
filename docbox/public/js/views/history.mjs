@@ -33,10 +33,16 @@ export async function renderHistory(app) {
         </div>
         <div class="hist-wrap" data-table><div class="recent-empty">加载中…</div></div>
       </div>
+      <div class="panel">
+        <div class="panel-title"><h2>语音转写任务</h2><span data-stthint>离线转写在这里排队与回看</span></div>
+        <div class="hist-wrap" data-stt><div class="recent-empty">加载中…</div></div>
+      </div>
     </div>`;
 
   const table = $('[data-table]', view);
   const hint = $('[data-histhint]', view);
+  const sttTable = $('[data-stt]', view);
+  const sttHint = $('[data-stthint]', view);
   let suite = '';
 
   async function load() {
@@ -65,6 +71,51 @@ export async function renderHistory(app) {
       hint.textContent = st ? '累计 ' + st.total + ' 条记录' : '';
     } catch (err) {
       table.innerHTML = '<div class="recent-empty">加载失败：' + esc(err.message) + '</div>';
+    }
+    loadStt();
+  }
+
+  async function loadStt() {
+    if (!sttTable) return;
+    try {
+      const data = await getJson('/api/stt/jobs');
+      const jobs = data.jobs || [];
+      if (!jobs.length) {
+        sttTable.innerHTML = '<div class="recent-empty">还没有转写任务。到「OCR 与转写 → 音视频转写」提交一个。</div>';
+        return;
+      }
+      if (sttHint) sttHint.textContent = jobs.length + ' 个任务';
+      sttTable.innerHTML = '<table class="hist-table"><thead><tr><th>时间</th><th>文件</th><th>状态</th><th>进度</th><th>结果</th><th>操作</th></tr></thead><tbody>' +
+        jobs.map((j) => '<tr>' +
+          '<td class="mono">' + esc(String(j.created_at || '').replace('T', ' ').slice(5, 16)) + '</td>' +
+          '<td>' + esc(j.name) + '</td>' +
+          '<td><span class="hist-tag">' + esc(j.status) + '</span></td>' +
+          '<td class="mono">' + (j.progress || 0) + '%</td>' +
+          '<td class="mono">' + esc((j.excerpt || j.error || '').slice(0, 40)) + '</td>' +
+          '<td><button class="chip" data-stt-view="' + esc(j.id) + '">查看</button> <button class="chip" data-stt-del="' + esc(j.id) + '">删除</button></td>' +
+          '</tr>').join('') + '</tbody></table>';
+
+      sttTable.querySelectorAll('[data-stt-view]').forEach((btn) => {
+        btn.onclick = async () => {
+          try {
+            const { job } = await getJson('/api/stt/job/' + btn.dataset.sttView);
+            const text = job.text || ('（还没有内容：' + job.status + '）');
+            const blob = new Blob(['\ufeff' + text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = (job.name || 'transcript') + '.txt'; a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+          } catch (err) { toast(err.message, 'error'); }
+        };
+      });
+      sttTable.querySelectorAll('[data-stt-del]').forEach((btn) => {
+        btn.onclick = async () => {
+          await fetch('/api/stt/job/' + btn.dataset.sttDel, { method: 'DELETE' }).catch(() => {});
+          loadStt();
+        };
+      });
+    } catch {
+      sttTable.innerHTML = '<div class="recent-empty">转写任务读取失败</div>';
     }
   }
 

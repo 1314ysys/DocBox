@@ -59,6 +59,7 @@ const ICONS = {
   paint: '<path d="M12 3a9 9 0 0 0 0 18c1.5 0 2-1 1.2-2-.7-1 0-2 1.3-2H17a4 4 0 0 0 4-4c0-5-4-10-9-10z"/><circle cx="8" cy="10" r="1"/><circle cx="12" cy="7" r="1"/><circle cx="16" cy="10" r="1"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  terminal: '<rect x="2" y="4" width="20" height="14" rx="2"/><path d="m6 9 3 3-3 3"/><path d="M13 15h5"/>',
   drag: '<path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/>',
 };
 

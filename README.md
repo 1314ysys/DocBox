@@ -3,9 +3,20 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.1.5` · 87 个可用工具 · 全类型文件预览 · 15 项文档能力 · 账户角色与模块授权 · 143 项冒烟断言全通过
+`v0.1.6` · 88 个可用工具 · SSH/Telnet 网页终端 · Whisper 语音转写 · 全类型文件预览 · 账户角色与模块授权 · 159 项冒烟断言全通过
 
 ---
+
+## 0.1.6 有什么变化
+
+- **网络安全模块接入网页终端**：新增 `#/terminal`「SSH / Telnet 终端」，在浏览器里直接连服务器 —— xterm.js 渲染、多会话标签、窗口自适应（列行数同步给远端）、断线自动回收；后端用 `ssh2`（SSH）与原生 `net` + IAC 协商（Telnet）在本机进程内转发，密码只在内存中用于本次握手，不落库。
+- **OCR 模块改名「OCR 与转写」**（模块键仍是 `ocr`，接口 `/api/stt/*` 同属该模块权限）：一个页面四个标签 —— 图片 OCR / PDF 整本 OCR / 音视频转写 / 实时转写。
+- **音视频转写**：本机跑 Whisper tiny（`@xenova/transformers` + ONNX Runtime，模型 ~40 MB，中英多语），ffmpeg 解码任意音视频 → 16 kHz 单声道 → 12 秒窗口逐段识别，输出文本与 SRT 字幕。
+  - **离线转写**：提交即入后台队列（单并发，进度 0-100%，任务与文本落 `stt_jobs` 表），可以关页面去做别的，回来在「处理历史 → 语音转写任务」里下载 TXT。
+  - **在线转写**：≤15 分钟音频同步返回，适合随手一段。
+- **实时转写**：麦克风每 5 秒切片送本机 Whisper，边说边出字，可复制 / 导出 TXT / 导出 SRT。
+- 模型下载走 `hf-mirror.com` 镜像（`huggingface.co` 直连受限时也可用），缓存在 `tmp/models`。
+- 修复/兼容：`@xenova/transformers` 自带的旧版 `sharp` 在 Windows 上装不上二进制，安装时用 `--ignore-scripts` 并删除其嵌套 `sharp`，改用项目根目录的 `sharp@0.35`。
 
 ## 0.1.5 有什么变化
 
@@ -59,7 +70,7 @@
 | 账户管理 `#/accounts` | 可见可用 | 导航隐藏，接口 403 |
 | 其他模块工具 | 全部可用 | 仅授权模块；未授权模块导航隐藏、卡片过滤、路由跳回首页、接口 403 |
 
-模块键：`image`（图片）`pdf`（PDF）`doc`（文档）`sheet`（表格）`ocr`（识别）`media`（音视频）`net`（网络安全）`history`（处理历史）`accounts`（账户管理，仅管理员）。
+模块键：`image`（图片）`pdf`（PDF）`doc`（文档）`sheet`（表格）`ocr`（OCR 与转写）`media`（音视频）`net`（网络安全）`history`（处理历史）`accounts`（账户管理，仅管理员）。
 
 安全细节：
 
@@ -88,7 +99,7 @@ cd ..
 ```powershell
 cd docbox
 npm start            # node --max-old-space-size=1536 server.mjs
-npm run smoke        # 143 项冒烟检查（需服务已启动）
+npm run smoke        # 159 项冒烟检查（需服务已启动）
 ```
 
 ## 本地数据库
@@ -142,7 +153,7 @@ npm run smoke        # 143 项冒烟检查（需服务已启动）
 
 > 图片转 PDF 在「图片」模块（图片合成 PDF），同样属于文档流水线。
 
-## 工具清单（87 项可用）
+## 工具清单（88 项可用）
 
 | 分类 | 数量 | 代表能力 |
 | --- | --- | --- |
@@ -151,10 +162,10 @@ npm run smoke        # 143 项冒烟检查（需服务已启动）
 | PDF（原生套件） | 21 | 旋转 / 删页 / 重排 / 裁剪 / 缩放 / 多页合一 / 小册子 / 叠加 / 长页 / 解压 / 扁平化 / 去空白 / 加密(AES-256) / 解密 / 清理 / 元数据读写 / PDF→图片 / PDF→文字 / 图片提取 / 图片转 PDF / 书签 |
 | 文档 | 15 | Word / Excel / PPT / Markdown / 文本 → PDF，HTML ⇄ Word，Word → TXT / HTML / MD，Markdown → HTML，批量转换，公文排版，Markdown 编辑器，表格生成器 |
 | 表格 | 2 | Excel ⇄ CSV ⇄ JSON、多工作表拆分 |
-| 文字识别 | 1 | 图片 + 整本 PDF 的离线中文 OCR（tesseract.js v7 + chi_sim） |
+| OCR 与转写 | 2 | 图片 + 整本 PDF 的离线中文 OCR（tesseract.js v7 + chi_sim）；音视频 Whisper 转写（离线后台任务 / 在线同步 / 麦克风实时）+ SRT 导出 |
 | 账户管理 | 1 | 创建账户、角色（管理员/普通用户）、按模块授权、启停用、重置密码 |
 | 音视频 | 18 | 转码、压缩、提取音轨、音频转码、截取、合并、GIF、抽帧、缩放、变速、响度、静音、旋转、水印、图片轮播、淡入淡出、探明信息、清元数据 |
-| 网络安全 | 16 | 端口扫描（64 并发/顶 1000 端口）、DNS、ping、traceroute、响应头评级、TLS 证书、RDAP、跳转链、耗时、目录探测、方法探测、服务指纹、本机网络、子域枚举、安全配置生成、IP 归属 |
+| 网络安全 | 17 | 端口扫描（64 并发/顶 1000 端口）、DNS、ping、traceroute、响应头评级、TLS 证书、RDAP、跳转链、耗时、目录探测、方法探测、服务指纹、本机网络、子域枚举、安全配置生成、IP 归属、SSH/Telnet 网页终端 |
 
 ## 目录结构
 
@@ -173,9 +184,9 @@ docbox/
       docops.mjs           # DOCX 直写 / PPTX 解析 / 公文排版 / Markdown 工具
       netprobe.mjs         # 网络探测（16 项，纯 Node 实现）
       track.mjs            # 处理记录写入
-    routes/                # auth / accounts / preview / image / idphoto / pdf / suite / history / doc / sheet / ocr / meta
+    routes/                # auth / accounts / preview / image / idphoto / pdf / suite / history / doc / sheet / ocr / stt / terminal / meta
   public/                  # 原生 ES 模块前端（core / tools / views），含登录页、账户管理、Markdown 编辑器、音视频预览
-  scripts/smoke.mjs        # 143 项冒烟测试
+  scripts/smoke.mjs        # 159 项冒烟测试
   testdata/                # 冒烟用样例（PDF / 图片 / 音视频 / 表格 / Word / PPTX / Markdown / HTML）
 version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码快照）
 ```
@@ -186,8 +197,8 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 
 ## 验证
 
-- `npm run smoke`：**143/143 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 预览 11 · 音视频 16 · 网络安全 15 · 数据库 10 · 其它 25）
-- 浏览器（Edge/Chromium）实测：首页 87 张卡片、文档 15 项、图片/PDF/Word/Excel/PPT/Markdown/TXT 七类预览、结果 PDF 与 Word 预览、OCR 缩略图、音视频播放器、Markdown 编辑器导出、公文排版、账户权限，均无控制台报错。
+- `npm run smoke`：**159/159 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 预览 11 · 音视频 16 · 网络安全 15 · 终端 4 · 转写 8 · 数据库 10 · 其它 29）
+- 浏览器（Edge/Chromium）实测：首页 88 张卡片、文档 15 项、图片/PDF/Word/Excel/PPT/Markdown/TXT 七类预览、结果 PDF 与 Word 预览、OCR 缩略图、音视频播放器、Markdown 编辑器导出、公文排版、账户权限，均无控制台报错。
 
 ## 版本历史
 
@@ -197,6 +208,7 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 | 0.1.4 | 2026-10-20 | 全类型文件预览：图片 / PDF 首页 / Word 文本 / Excel 表格 / PPT 分页 / Markdown-TXT 文本 / 音视频播放器，结果卡片同样可预览 |
 | 0.1.3 | 2026-10-20 | 文档模块扩到 15 项（对齐 gongjuheji.com/document：PPT/Html↔Word/TXT/批量/公文排版/MD 编辑器/表格生成器），音视频预览播放器 |
 | 0.1.2 | 2026-10-20 | 登录 + 角色 + 模块授权（导航/路由/接口三重拦截）、账户管理页、展示卡片与模块一一对应 |
+| 0.1.6 | 2026-10-20 | 网络安全接入 SSH/Telnet 网页终端（xterm.js + WebSocket，多会话）；OCR 改名「OCR 与转写」，新增 Whisper tiny 音视频转写（离线后台任务 / 在线同步）与麦克风实时转写，支持 SRT 导出 |
 | 0.1.1 | 2026-10-20 | 移除 Stirling-PDF 端口与 JDK；新增音视频 18 项、网络安全 16 项、原生 PDF 21 项；接入本地 MySQL；新增历史页 |
 | 0.1.0_beta | 2026-10-20 | 首个基线：Stirling 融合 + 7 套水印 + 离线 OCR + 前端模块化 |
 

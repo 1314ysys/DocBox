@@ -15,6 +15,7 @@ import { renderHistory } from './views/history.mjs';
 import { renderAccounts } from './views/accounts.mjs';
 import { renderMdEditor } from './views/md-editor.mjs';
 import { renderMdTable } from './views/md-table.mjs';
+import { renderTerminal } from './views/terminal.mjs';
 import { renderLogin, hideLogin } from './views/login.mjs';
 
 history.scrollRestoration = 'manual';
@@ -35,7 +36,7 @@ function persistScroll() {
   } catch { /* 隐私模式忽略 */ }
 }
 
-const VIEWS = ['home', 'tool', 'watermark', 'idphoto', 'editor', 'extract', 'ocr', 'history', 'accounts', 'md-editor', 'md-table'];
+const VIEWS = ['home', 'tool', 'watermark', 'idphoto', 'editor', 'extract', 'ocr', 'history', 'accounts', 'md-editor', 'md-table', 'terminal'];
 let app = null;
 let wired = false;
 
@@ -173,6 +174,7 @@ function paint(head, arg) {
   if (head === 'extract') { if (!guard('pdf')) return; hideViews('extract'); syncNav('pdf'); renderExtract(app); return; }
   if (head === 'ocr') { if (!guard('ocr')) return; hideViews('ocr'); syncNav('ocr'); renderOcr(app); return; }
   if (head === 'history') { if (!guard('history')) return; hideViews('history'); syncNav('history'); renderHistory(app); return; }
+  if (head === 'terminal') { if (!guard('net')) return; hideViews('terminal'); syncNav('net'); renderTerminal(app); return; }
   if (head === 'md-editor') { if (!guard('doc')) return; hideViews('md-editor'); syncNav('doc'); renderMdEditor(app); return; }
   if (head === 'md-table') { if (!guard('doc')) return; hideViews('md-table'); syncNav('doc'); renderMdTable(app); return; }
   if (head === 'accounts') {

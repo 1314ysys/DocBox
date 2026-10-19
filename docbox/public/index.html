@@ -38,7 +38,7 @@
         <a class="nav-item" data-nav="pdf" data-module="pdf" href="#/cat/pdf"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6M9 17h4"></path></svg></span>PDF 工具</a>
         <a class="nav-item" data-nav="doc" data-module="doc" href="#/cat/doc"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="M4 9h16M8 5v14"></path></svg></span>文档转换</a>
         <a class="nav-item" data-nav="sheet" data-module="sheet" href="#/cat/sheet"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M9 9v11"></path></svg></span>表格处理</a>
-        <a class="nav-item" data-nav="ocr" data-module="ocr" href="#/cat/ocr"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3"></path><path d="M4 12h16"></path></svg></span>文字识别</a>
+        <a class="nav-item" data-nav="ocr" data-module="ocr" href="#/cat/ocr"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3"></path><path d="M4 12h16"></path></svg></span>OCR 与转写</a>
         <a class="nav-item" data-nav="media" data-module="media" href="#/cat/media"><span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="2"></rect><path d="m16 10 6-3v10l-6-3z"></path></svg></span>音视频工具</a>
         <a class="nav-item" data-nav="net" data-module="net" href="#/cat/net"><span class="nav-ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"></path><path d="M9 12l2 2 4-4"></path></svg></span>网络安全</a>
         <div class="nav-label">记录</div>
@@ -276,38 +276,84 @@
         </div>
       </section>
 
+      <section id="view-terminal" class="view" hidden>
+        <div class="tool-head">
+          <a class="back" href="#/cat/net">← 返回网络安全</a>
+          <div class="tool-title">
+            <span class="tool-ico cat-net"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="m6 9 3 3-3 3"/><path d="M13 15h5"/></svg></span>
+            <div><h1>SSH / Telnet 网页终端</h1><p>浏览器里直连服务器：SSH（默认 22）与 Telnet（默认 23），多会话标签、断线自动回收。连接由本机 Node 进程转发，密码只在内存里用于本次握手，不落库。</p></div>
+          </div>
+        </div>
+        <div class="term-shell">
+          <aside class="term-side">
+            <div class="term-side-head"><b>连接</b><span class="term-count" id="termCount">0</span><button class="btn btn-sm btn-primary" id="termNew" type="button">＋ 新建</button></div>
+            <div class="term-list" id="termList"><div class="term-empty">暂无连接，点「新建」开始</div></div>
+            <form class="term-form" id="termForm" hidden>
+              <label>协议
+                <select id="termProtocol"><option value="ssh">SSH</option><option value="telnet">Telnet</option></select>
+              </label>
+              <label>主机<input id="termHost" placeholder="192.168.1.10 或 example.com" autocomplete="off"></label>
+              <label>端口<input id="termPort" placeholder="留空 = 22 / 23" autocomplete="off"></label>
+              <div id="termCreds">
+                <label>用户名（Telnet 可留空）<input id="termUser" placeholder="root" autocomplete="off"></label>
+                <label>密码<input id="termPass" type="password" autocomplete="new-password"></label>
+              </div>
+              <button class="btn btn-primary" id="termConnect" type="submit">连接</button>
+              <p class="term-note">会话只在本机进程内转发；关闭标签即断开连接。</p>
+            </form>
+          </aside>
+          <div class="term-main">
+            <div class="term-tabs" id="termTabs"></div>
+            <div class="term-body" id="termBody"><div class="term-tip">← 在左侧新建连接，或点选已有会话</div></div>
+          </div>
+        </div>
+      </section>
+
       <section id="view-ocr" class="view" hidden>
         <div class="tool-head">
-          <a class="back" href="#/">← 返回全部工具</a>
+          <a class="back" href="#/cat/ocr">← 返回 OCR 与转写</a>
           <div class="tool-title">
             <span class="tool-ico cat-ocr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3"/><path d="M4 12h16"/></svg></span>
-            <div><h1>OCR 文字识别</h1><p>中文离线识别（tesseract.js + chi_sim），支持图片批量识别与整本 PDF 识别，结果可复制或导出 TXT。</p></div>
+            <div><h1>OCR 与转写</h1><p>离线中文 OCR（tesseract.js）· 整本 PDF 识别 · 音视频语音转写（Whisper tiny，中英文）· 麦克风实时转写。全部在本机完成。</p></div>
           </div>
+        </div>
+        <div class="ocr-tabs">
+          <button type="button" class="ocr-tab active" data-ocr-tab="image">图片 OCR</button>
+          <button type="button" class="ocr-tab" data-ocr-tab="pdf">PDF 整本 OCR</button>
+          <button type="button" class="ocr-tab" data-ocr-tab="file">音视频转写</button>
+          <button type="button" class="ocr-tab" data-ocr-tab="live">实时转写</button>
         </div>
         <div class="ocr-layout">
           <div class="panel">
-            <div class="tabs">
-              <button type="button" class="tab active" data-ocr-mode="image">图片 OCR</button>
-              <button type="button" class="tab" data-ocr-mode="pdf">PDF 整本 OCR</button>
-            </div>
-            <div id="ocrDrop" class="dropzone"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg><b>选择或拖入图片（可多张）</b><span>识别在本机完成，不联网</span><button class="btn btn-primary btn-sm" id="ocrPick">选择文件</button><input id="ocrFile" type="file" accept="image/*" multiple hidden></div>
+            <div id="ocrDrop" class="dropzone"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg><b>选择或拖入图片（可多张）</b><span>识别在本机完成，不联网</span><button class="btn btn-primary btn-sm" id="ocrPick" type="button">选择文件</button><input id="ocrFile" type="file" accept="image/*" multiple hidden></div>
             <div id="ocrMeta" class="muted"></div>
             <div id="ocrPreview" class="media-preview" hidden></div>
+            <div id="ocrOpts" class="ocr-opts" hidden>
+              <label>语言
+                <select id="ocrLang"><option value="zh">中文</option><option value="en">English</option><option value="auto">自动识别</option></select>
+              </label>
+              <label id="ocrModeWrap">方式
+                <select id="ocrSttMode"><option value="offline">离线（后台任务，可离开页面）</option><option value="online">在线（同步返回，≤15 分钟）</option></select>
+              </label>
+            </div>
             <div class="run-bar">
               <button class="btn btn-primary" id="ocrRun" disabled>开始识别</button>
               <button class="btn btn-ghost" id="ocrCopy" disabled>复制文本</button>
               <button class="btn btn-ghost" id="ocrSave" disabled>下载 TXT</button>
+              <button class="btn btn-ghost" id="ocrSrt" hidden disabled>下载 SRT</button>
               <span class="run-hint" id="ocrHint"></span>
             </div>
             <div id="ocrProgress" class="progress" hidden><div></div></div>
+            <div id="ocrJob" class="ocr-job" hidden></div>
           </div>
           <div class="panel">
-            <div class="panel-title"><h2>识别结果</h2><span id="ocrConf"></span></div>
-            <textarea id="ocrText" class="ocr-text" placeholder="识别结果显示在这里，可直接编辑、复制或导出…"></textarea>
+            <div class="panel-title"><h2 id="ocrResultTitle">识别结果</h2><span id="ocrConf"></span></div>
+            <textarea id="ocrText" class="ocr-text" placeholder="识别 / 转写结果显示在这里，可直接编辑、复制或导出…"></textarea>
           </div>
         </div>
       </section>
-            <section id="view-history" class="view" hidden></section>
+      
+      <section id="view-history" class="view" hidden></section>
       <section id="view-accounts" class="view" hidden></section>
       <section id="view-md-editor" class="view" hidden></section>
       <section id="view-md-table" class="view" hidden></section>
@@ -316,6 +362,7 @@
 
   <div id="toast" class="toast"></div>
   <script src="/vendor/jszip/jszip.min.js"></script>
-  <script type="module" src="/js/main.mjs"></script>
+  <script src="/vendor/xterm/xterm.min.js"></script>
+    <script type="module" src="/js/main.mjs"></script>
 </body>
 </html>
