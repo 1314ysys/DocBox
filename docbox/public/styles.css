@@ -739,21 +739,27 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .nav-item[hidden] { display: none !important; }
 
 .acc-wrap { overflow: auto; }
+/* 账户页：6 列表格需要整行宽度，新建表单单独一行放下 */
+.workspace-accounts { grid-template-columns: minmax(0, 1fr); }
 .acc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .acc-table th, .acc-table td {
-  padding: 10px 12px; text-align: left; border-bottom: 1px solid #f1f5f9; vertical-align: top;
+  padding: 8px 10px; text-align: left; border-bottom: 1px solid #f1f5f9; vertical-align: top; line-height: 1.45;
 }
+.acc-table td:first-child { min-width: 150px; }
+.acc-table th:nth-child(2), .acc-table td:nth-child(2) { min-width: 108px; }
+.acc-table th:nth-child(3), .acc-table td:nth-child(3) { min-width: 84px; }
+.acc-table th:nth-child(5), .acc-table td:nth-child(5) { min-width: 132px; }
 .acc-table th { background: #f8fafc; color: #475569; font-weight: 600; white-space: nowrap; }
 .acc-table select {
   border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 8px; font-size: 12.5px; background: #fff;
 }
 .acc-sub { font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
-.acc-actions { white-space: nowrap; display: flex; gap: 6px; flex-wrap: wrap; }
-.mod-grid { display: flex; flex-wrap: wrap; gap: 6px; max-width: 420px; }
+.acc-actions { white-space: nowrap; display: flex; gap: 4px; flex-wrap: wrap; min-width: 196px; }
+.mod-grid { display: flex; flex-wrap: wrap; gap: 4px 5px; min-width: 340px; max-width: 560px; }
 .mod-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 9px; border-radius: 999px; border: 1px solid #e2e8f0;
-  font-size: 11.5px; color: #64748b; cursor: pointer; user-select: none;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 999px; border: 1px solid #e2e8f0;
+  font-size: 10.8px; line-height: 1.45; color: #64748b; cursor: pointer; user-select: none;
   background: #fff;
 }
 .mod-chip input { display: none; }
@@ -762,7 +768,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .account-form {
   display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
 }
-.account-form .fld { min-width: 150px; flex: 1; }
+.account-form .fld { min-width: 150px; max-width: 240px; flex: 0 1 240px; }
 .acc-legend { font-size: 12px; color: #94a3b8; }
 
 /* 模块化 hero：右侧展示卡片随左侧模块变化 */

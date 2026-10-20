@@ -19,7 +19,7 @@ export async function renderAccounts(app) {
         <div><h1>账户管理</h1><p>创建普通用户、切换角色、按模块授权。普通用户登录后只能看到并访问被授权的模块，接口层同样拦截。</p></div>
       </div>
     </div>
-    <div class="workspace">
+    <div class="workspace workspace-accounts">
       <div class="panel">
         <div class="panel-title"><h2>新建账户</h2><span class="muted">密码至少 4 位</span></div>
         <form id="newAccount" class="account-form">
