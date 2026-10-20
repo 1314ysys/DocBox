@@ -1,4 +1,4 @@
-# DocBox 一键部署（Windows / Podman）
+﻿# DocBox 一键部署（Windows / Podman）
 # 用法：右键「使用 PowerShell 运行」，或在 PowerShell 里执行：
 #   powershell -ExecutionPolicy Bypass -File .\install-windows.ps1
 # 可选参数：-Port 3000 -ImageTar .\docbox-0.2.0-image.tar -Volume docbox-data -NoBrowser
