@@ -126,7 +126,8 @@ async function processChunk(session, chunk) {
       if (changed && session.speechStart >= 0 && now - session.lastPartialAt >= PARTIAL_MS) {
         session.lastPartialAt = now;
         const text = session.asr.text;
-        if (text) emit(session, { type: 'partial', text: session.text ? session.text + ' ' + text : text, start: Number(session.speechStart.toFixed(2)), end: Number((session.bufStartSec + session.buf.length / SAMPLE_RATE_HZ).toFixed(2)) });
+        // 只发当前这一句的增量：已定稿内容已经进了结果框，预览行不要再重复
+        if (text) emit(session, { type: 'partial', text, start: Number(session.speechStart.toFixed(2)), end: Number((session.bufStartSec + session.buf.length / SAMPLE_RATE_HZ).toFixed(2)) });
       }
     } catch (err) {
       emit(session, { type: 'warn', message: String(err.message || err) });

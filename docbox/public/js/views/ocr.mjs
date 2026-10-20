@@ -76,6 +76,8 @@ function setMode(mode) {
   $('#ocrMeta').textContent = '';
   $('#ocrHint').textContent = '';
   $('#ocrJob').hidden = true;
+  if ($('#ocrLive')) { $('#ocrLive').hidden = true; $('#ocrLive').textContent = ''; }
+  st.partialText = '';
   $('#ocrSrt').hidden = true;
   $('#ocrSrt').disabled = true;
   $('#ocrCopy').disabled = true;
@@ -366,6 +368,12 @@ async function toggleLive() {
     $('#ocrProgress').hidden = false;
     $('#ocrText').value = '';
     $('#ocrConf').textContent = '';
+    st.partialText = '';
+    st.segments = [];
+    lastSegments = [];
+    setLivePartial('');
+    $('#ocrSrt').hidden = true;
+    $('#ocrSrt').disabled = true;
   } catch (err) {
     toast(err.message, 'error', 6000);
     stopLive(true);
@@ -373,7 +381,6 @@ async function toggleLive() {
 }
 
 function handleStreamEvent(msg, language) {
-  const ta = $('#ocrText');
   if (msg.type === 'ready') {
     $('#ocrHint').textContent = '已连接（' + (msg.language || language) + ' · 流式），开始说话…';
     return;
@@ -387,21 +394,26 @@ function handleStreamEvent(msg, language) {
     return;
   }
   if (msg.type === 'partial') {
-    st.partialText = msg.text || '';
-    renderLive();
+    setLivePartial(msg.text || '');
     return;
   }
   if (msg.type === 'final') {
-    st.finalText = (st.finalText ? st.finalText + ' ' : '') + (msg.text || '');
     st.partialText = '';
-    st.segments.push({ start: msg.start, end: msg.end, text: msg.text || '' });
-    lastSegments = st.segments;
+    const text = String(msg.text || '').trim();
+    if (text) {
+      appendConfirmed(text);
+      st.segments.push({ start: msg.start, end: msg.end, text });
+      lastSegments = st.segments;
+    }
+    setLivePartial('');
     renderLive(true);
     return;
   }
   if (msg.type === 'done') {
-    if (msg.text) st.finalText = msg.text;
-    st.partialText = '';
+    // 定稿已经在每条 final 里追加过，done 只收尾；只有在一条都没收到时才兜底
+    setLivePartial('');
+    const ta = $('#ocrText');
+    if (!ta.value.trim() && msg.text) ta.value = String(msg.text);
     renderLive(true);
     $('#ocrHint').textContent = '转写结束';
     return;
@@ -411,9 +423,30 @@ function handleStreamEvent(msg, language) {
   }
 }
 
+/** 实时 partial 只更新独立的预览行，绝不覆盖用户正在编辑的结果框 */
+function setLivePartial(text) {
+  st.partialText = String(text || '');
+  const box = $('#ocrLive');
+  if (!box) return;
+  const next = st.partialText.trim();
+  box.hidden = !next;
+  box.textContent = next;  // 空字符串也要清掉，避免 final 后残留旧文本
+  $('#ocrConf').textContent = '流式输出 · ' + ($('#ocrText').value.replace(/\s/g, '').length) + ' 字' + (next ? ' · 识别中…' : '');
+}
+
+/** 追加一句定稿文本；用 setRangeText 只插入末尾，保留用户的编辑与光标 */
+function appendConfirmed(text) {
+  const ta = $('#ocrText');
+  const cur = ta.value;
+  const atEnd = ta.selectionStart === cur.length && ta.selectionEnd === cur.length;
+  const sep = !cur ? '' : (/[\s]$/.test(cur) ? '' : (/[，。！？；：、,.!?;:）)】》"”]$/.test(cur) ? '' : ' '));
+  const pos = cur.length;
+  ta.setRangeText(sep + text, pos, pos, 'end');
+  if (atEnd || document.activeElement !== ta) ta.scrollTop = ta.scrollHeight;
+}
+
 function renderLive(isFinal) {
   const ta = $('#ocrText');
-  ta.value = st.finalText + (st.partialText ? (st.finalText ? '\n' : '') + st.partialText : '');
   const chars = ta.value.replace(/\s/g, '').length;
   $('#ocrConf').textContent = '流式输出 · ' + chars + ' 字' + (st.partialText ? ' · 识别中…' : '');
   $('#ocrCopy').disabled = !ta.value;
@@ -452,6 +485,7 @@ async function stopLive(silent) {
     }
   } catch { /* 忽略 */ }
   st.live = null;
+  setLivePartial('');
   $('#ocrRun').textContent = MODE_TEXT.live.run;
   $('#ocrProgress').hidden = true;
   if (!silent) {
