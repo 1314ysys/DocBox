@@ -3,7 +3,7 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.2.0` · 88 个可用工具 · SSH/Telnet 网页终端 · SenseVoice + sherpa-onnx 流式识别（WebRTC 采集 · 本地 APM 前处理 · 实时预览不抢编辑） · 全类型文件预览 · 账户角色与模块授权 · 181 项冒烟断言全通过
+`v0.3.0` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析下载**（B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷，自带 HLS 下载器 + yt-dlp） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 186 项冒烟断言全通过
 
 ---
 
@@ -21,13 +21,43 @@ powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
 sudo bash deploy/install-linux.sh --port 3000
 ```
 
-- 镜像包 `version/0.2.0/docbox-0.2.0-image.tar`（`podman save` 导出，约 3.2GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
+- 镜像包 `version/0.3.0/docbox-0.3.0-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
 - 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
 
 细节、参数与常见问题见 **[deploy/README.md](deploy/README.md)**。
 
 ---
+
+## 0.3.0 有什么变化
+
+> 主题：**服务器不再是「肉机」，网络体检回到你自己的电脑上跑。**
+
+### 网络安全 16 项：全部改由登录用户的浏览器发起
+
+- 新增前端引擎 `public/js/core/netclient.mjs`：DNS（DoH）、连通性、端口、HTTP 头、重定向、性能拆解、子域名、RDAP、IP 归属、本机信息、安全头生成等全部在**用户自己的电脑/浏览器里执行**，服务器只托管页面，不再代替用户去探测目标；
+- 结果面板标注「本机发起」，每条记录带 `origin: 浏览器本机`；
+- 浏览器沙箱做不到的三项（路由追踪 ICMP、TLS 证书读取、裸 TCP Banner）会明确返回「浏览器受限 + 建议用系统命令」，而不是偷偷让服务器代跑；
+- 后端 `/api/suite/net/*` 保留，仅用于自检脚本与命令行排障，界面不再调用。
+
+### OCR：中英混排 + 条码/二维码
+
+- 语言包升级为 `chi_sim + eng` 混合识别（`models/tessdata` 内同时装两种 traineddata），中英混排一屏可同时识别；
+- 新增条码识别（`zxing-wasm`）：QR / MicroQR / Code128 / Code39 / Code93 / EAN-8/13 / UPC-A/E / ITF / Codabar / DataMatrix / PDF417 / Aztec 等 20+ 种，结果与文字一起返回；
+- 识别内容可选「中英混排 + 条码 / 仅文字 / 仅条码」；PDF 整本 OCR 每页都会附带该页的条码结果。
+
+### 视频网站解析（不另建站点）
+
+- 新增工具「视频网站解析」：贴一个视频页链接即可解析标题、封面、各清晰度直链；
+- **内置 HLS 下载器**（`src/lib/hls.mjs`）：解析 master/meida 播放列表、按码率选流、并发下载分片、AES-128 解密、ffmpeg `-c copy` 合成 MP4；
+- **yt-dlp 引擎**（镜像内已预装）：B 站 / YouTube / 爱奇艺 / 腾讯视频 / 优酷 / 抖音 等站点的解析与下载；
+- 没有 yt-dlp 时自动降级为「页面里找 m3u8 / 直链」+ 自带 HLS 下载器，功能不中断；
+- 参考了开源项目（如 parsedock 一类在线解析站）的思路，但**代码全部内嵌在本项目、不额外部署任何站点**。
+
+### 网页终端（SSH / Telnet）实测
+
+- 实测通过：Telnet 会话在浏览器 WebSocket 里双向收发正常（握手问候 → 输入 → 回显），SSH 走 ssh2 同一会话管线；
+- 说明：浏览器无法直接开裸 TCP，网页终端必须由服务端中继连接；这与「网络体检改本机发起」不同，终端是**连到目标服务器**，中继是协议决定的，不在服务器上执行目标侧命令。
 
 ## 0.2.0 有什么变化
 
@@ -327,10 +357,13 @@ docbox/
       pdf-render.mjs       # pdfjs + @napi-rs/canvas 渲染
       media.mjs            # ffmpeg/ffprobe 封装（18 项）
       docops.mjs           # DOCX 直写 / PPTX 解析 / 公文排版 / Markdown 工具
-      netprobe.mjs         # 网络探测（16 项，纯 Node 实现）
+      netprobe.mjs         # 网络探测（16 项，服务端实现，仅自检/排障用）
+      hls.mjs              # HLS 播放列表解析 + 分片下载 + AES-128 解密 + 合成 MP4
+      video.mjs            # 视频网站解析（yt-dlp 优先，页面扫描兜底）
       track.mjs            # 处理记录写入
-    routes/                # auth / accounts / preview / image / idphoto / pdf / suite / history / doc / sheet / ocr / stt / terminal / meta
+    routes/                # auth / accounts / preview / image / idphoto / pdf / suite / history / doc / sheet / ocr / stt / terminal / video / meta
   public/                  # 原生 ES 模块前端（core / tools / views），含登录页、账户管理、Markdown 编辑器、音视频预览
+  public/js/core/netclient.mjs  # 网络安全 16 项：浏览器本机发起的探测引擎（服务器不参与）
   scripts/smoke.mjs        # 159 项冒烟测试
   testdata/                # 冒烟用样例（PDF / 图片 / 音视频 / 表格 / Word / PPTX / Markdown / HTML）
 version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码快照）
@@ -338,17 +371,25 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 
 ## 安全声明
 
-网络安全分类**只面向自有或已获授权的资产**：没有口令爆破、漏洞利用或第三方扫描服务，全部为连通性、指纹与配置审计的本地实现，每条结果都带 `warning: 仅限自有或已获授权的资产`。请勿用于未授权目标。
+网络安全分类**只面向自有或已获授权的资产**：没有口令爆破、漏洞利用或第三方扫描服务。
+
+- **探测由你自己的浏览器发起**（v0.3.0 起）：DNS/端口/HTTP/子域/RDAP 等请求都从登录用户的电脑发出，服务器不代为扫描任何目标，服务端代码只保留给自检脚本与命令行排障；
+- Web SSH / Telnet 终端属于「浏览器连目标服务器」，协议上必须由服务端中继 TCP，且不在服务器上执行目标侧命令；
+- 视频解析只处理公开可访问的链接，不托管、不转存站点内容，请遵守各平台的版权与使用条款。
 
 ## 验证
 
-- `npm run smoke`：**181/181 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 预览 11 · 音视频 16 · 网络安全 15 · 终端 4 · 转写 26 · 数据库 10 · 其它 29）
-- 浏览器（Edge/Chromium）实测：首页 88 张卡片、文档 15 项、图片/PDF/Word/Excel/PPT/Markdown/TXT 七类预览、结果 PDF 与 Word 预览、OCR 缩略图、音视频播放器、Markdown 编辑器导出、公文排版、账户权限，均无控制台报错。
+- 容器内实测（`docbox:0.3.0`）：健康检查 200 · yt-dlp 2026.08.19 · QR/Code128 解码正确 · 中英混排 OCR 92% · 本地 HLS 探针 + 分片下载 + 合成 MP4 通过 · 容器内 tools-check **92/94**（2 项为外网抖动）
+- 宿主 tools-check：**91/94**（3 项均为宿主网络抖动：net-headers 超时 / net-rdap fetch failed / net-subdomain crt.sh 502）
+- `npm run smoke`：**186/186 通过**（登录/权限 18 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 预览 11 · 音视频 16 · 网络安全 16 · 终端 4 · 转写 26 · 数据库 10 · 其它 35）
+- 浏览器（Edge/Chromium）实测：首页 89 张卡片、文档 15 项、图片/PDF/Word/Excel/PPT/Markdown/TXT 七类预览、结果 PDF 与 Word 预览、OCR 缩略图、音视频播放器、Markdown 编辑器导出、公文排版、账户权限，均无控制台报错。
 
 ## 版本历史
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
+| 0.3.0 | 2026-10-21 | 网络安全 16 项全部改为浏览器本机发起；OCR 中英混排 + 条码/二维码；新增视频网站解析下载（HLS 下载器 + yt-dlp）；网页终端实测 |
+| 0.2.0 | 2026-10-20 | 全工具自检 93/94、Podman 单镜像与 Windows/Linux 一键部署脚本 |
 | 0.1.5 | 2026-10-20 | 左侧导航独立滚动条；工具返回改为回到所属分类并恢复滚动位置（含刷新/后退） |
 | 0.1.4 | 2026-10-20 | 全类型文件预览：图片 / PDF 首页 / Word 文本 / Excel 表格 / PPT 分页 / Markdown-TXT 文本 / 音视频播放器，结果卡片同样可预览 |
 | 0.1.3 | 2026-10-20 | 文档模块扩到 15 项（对齐 gongjuheji.com/document：PPT/Html↔Word/TXT/批量/公文排版/MD 编辑器/表格生成器），音视频预览播放器 |

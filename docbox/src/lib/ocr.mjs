@@ -46,14 +46,15 @@ function pump() {
   run(task).then(resolve, reject).finally(() => { active -= 1; pump(); });
 }
 
-/** 识别一张或多张图片（路径数组），返回 [{text, confidence, lines, chars}] */
-export async function recognizeImages(paths) {
+/** 识别一张或多张图片（路径数组），返回 [{text, confidence, lines, chars, barcodes}]
+ * mode: 'both'（默认，中英文字 + 条码/二维码）| 'text' | 'barcode' */
+export async function recognizeImages(paths, mode = 'both') {
   const list = (Array.isArray(paths) ? paths : [paths]).filter(Boolean);
   if (!list.length) throw new Error('没有需要识别的图片');
-  return schedule({ paths: list });
+  return schedule({ paths: list, mode });
 }
 
-export async function recognizeImage(imagePath) {
-  const [first] = await recognizeImages([imagePath]);
+export async function recognizeImage(imagePath, mode = 'both') {
+  const [first] = await recognizeImages([imagePath], mode);
   return first;
 }

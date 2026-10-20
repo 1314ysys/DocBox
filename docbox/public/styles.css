@@ -1001,3 +1001,22 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   border-radius: 10px; padding: 8px 10px; margin-top: 10px;
 }
 .ocr-job b { color: #0f766e; font-family: Consolas, monospace; }
+
+/* ---------------- 网络工具：本机发起标记 ---------------- */
+.net-origin { margin-top: 4px; font-size: 12px; color: #0f766e; background: #ecfdf5; border: 1px solid #99f6e4; border-radius: 6px; padding: 2px 8px; display: inline-block; }
+
+/* ---------------- 视频网站解析 ---------------- */
+.workspace-video { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.video-url-row { display: flex; gap: 8px; align-items: center; }
+.video-url-row .input { flex: 1; min-width: 0; }
+.video-result { margin-top: 14px; border-top: 1px dashed #e2e8f0; padding-top: 12px; }
+.video-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+.video-thumb { width: 168px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; flex: none; }
+.video-head b { font-size: 15px; }
+.video-fmts { display: grid; gap: 6px; margin: 10px 0 12px; max-height: 320px; overflow: auto; }
+.video-fmt { display: flex; gap: 10px; align-items: center; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; }
+.video-fmt:hover { background: #f8fafc; }
+.video-fmt input { margin: 0; }
+.fmt-name { font-weight: 600; min-width: 84px; }
+.fmt-meta { color: #64748b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.warn-note { color: #b45309; font-size: 12px; margin-top: 4px; }

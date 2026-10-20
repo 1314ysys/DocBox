@@ -1,0 +1,51 @@
+{
+  "name": "DocBox",
+  "version": "0.3.0",
+  "channel": "stable",
+  "released": "2026-10-21",
+  "gitTag": "v0.3.0",
+  "summary": "网络安全 16 项改为浏览器本机发起（服务器不再代理扫描）；OCR 升级中英混排 + 条码/二维码（zxing-wasm）；新增视频网站解析下载（自带 HLS 下载器 + 预装 yt-dlp，覆盖 B 站/YouTube/爱奇艺/腾讯/优酷）；网页 Telnet 双向收发实测通过；镜像重建为 docbox:0.3.0。",
+  "counts": {
+    "tools": 89,
+    "catalogEntries": 91,
+    "docTools": 15,
+    "previewKinds": 7,
+    "modules": 9,
+    "dbTables": 8,
+    "suiteTools": 57,
+    "nativeTools": 34,
+    "netToolsClientSide": 16
+  },
+  "changed": [
+    "网络安全 16 项：新增 public/js/core/netclient.mjs，全部由用户浏览器发起",
+    "OCR：chi_sim+eng 中英混排，新增条码/二维码识别（zxing-wasm，20+ 码制）",
+    "新增视频网站解析：src/lib/hls.mjs（HLS 解析/AES-128/合成）+ src/lib/video.mjs（yt-dlp 优先）+ /api/video/*",
+    "镜像预装 yt-dlp（pip3），支持 B 站 / YouTube / 爱奇艺 / 腾讯视频 / 优酷",
+    "网页终端 Telnet 双向收发实测通过；SSH 走同一会话管线",
+    "依赖新增 zxing-wasm@2.0.1、@tesseract.js-data/eng@1.0.0"
+  ],
+  "tests": {
+    "smoke": {
+      "total": 186,
+      "passed": 186
+    },
+    "toolsCheck": "91/94（宿主网络抖动：net-headers 超时 / net-rdap fetch failed / net-subdomain crt.sh 502）",
+    "terminal": "Telnet 本地测试服务端：connect → /ws/terminal 双向收发 OK",
+    "video": "本地 HLS（ffmpeg 生成 6s 流）解析 + 分片下载 + 合成 MP4（ffprobe 6.04s / 146KB）通过",
+    "ocr": "QRCode / Code128 解码正确；中英混排样例识别置信度 92%",
+    "note": "网络类断言受宿主 DNS/外网波动影响，重跑可能波动",
+    "container": "92/94（容器内失败 2 项均为外网抖动：net-methods timeout / net-subdomain fetch failed）"
+  },
+  "image": {
+    "name": "docbox:0.3.0",
+    "tar": "docbox-0.3.0-image.tar",
+    "archive": "version/0.3.0/docbox-0.3.0-image.tar",
+    "base": "node:22-bookworm-slim",
+    "contents": "Node 22 + MariaDB 10.11 + FFmpeg + 中文字体 + sherpa 语音模型 + Python/numpy APM + yt-dlp",
+    "note": "podman save 导出，脚本内 podman load",
+    "size": "3.89 GB",
+    "tarSizeBytes": 3888952320,
+    "configId": "e45bafd72e43b4715b50587721dac9a565192d22864f2336909ce747c6407cf9",
+    "verified": "podman load 校验通过（Loaded image: localhost/docbox:0.3.0）；容器内健康检查 200、yt-dlp 2026.08.19、OCR 条码/中英混排、HLS 下载均实测通过"
+  }
+}

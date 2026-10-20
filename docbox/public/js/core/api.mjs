@@ -32,3 +32,14 @@ export function downloadUrl(url, name) {
   a.download = name || '';
   a.click();
 }
+
+export async function postJson(url, body = {}) {
+  const res = await fetch(url, {
+    method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
+    credentials: 'same-origin', body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  handleAuthStatus(res.status);
+  if (!res.ok) throw new Error(data.error || ('请求失败（HTTP ' + res.status + '）'));
+  return data;
+}

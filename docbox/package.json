@@ -1,7 +1,7 @@
 {
   "name": "docbox",
-  "version": "0.2.0",
-  "description": "本地文档与图像工作台：全类型文件预览、账户角色与模块授权、15 项文档能力、23 项原生 PDF、18 项音视频、16 项网络体检、SSH/Telnet 网页终端、离线 OCR 与 Whisper 语音转写。",
+  "version": "0.3.0",
+  "description": "本地文档与图像工作台：全类型文件预览、账户角色与模块授权、15 项文档能力、23 项原生 PDF、18 项音视频、16 项浏览器本机发起的网络体检、SSH/Telnet 网页终端、离线 OCR（中英混排 + 条码/二维码）与 Whisper 转写、视频网站解析下载。",
   "main": "server.mjs",
   "type": "module",
   "engines": {
@@ -39,6 +39,7 @@
     "@pdf-lib/fontkit": "^1.1.1",
     "@roamhq/wrtc": "^0.10.0",
     "@tesseract.js-data/chi_sim": "^1.0.0",
+    "@tesseract.js-data/eng": "^1.0.0",
     "@xenova/transformers": "^2.17.2",
     "express": "^5.3.0",
     "jszip": "^3.10.2",
@@ -54,6 +55,7 @@
     "tesseract.js": "^7.0.0",
     "turndown": "^7.2.4",
     "ws": "^8.22.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zxing-wasm": "^2.0.1"
   }
 }

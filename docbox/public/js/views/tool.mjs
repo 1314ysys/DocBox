@@ -6,6 +6,7 @@ import { renderResults, clearResults } from '../core/results.mjs';
 import { createPreview } from '../core/preview.mjs';
 import { toast, setBusy } from '../core/ui.mjs';
 import { CATS } from '../tools/catalog.mjs';
+import { runNetClient } from '../core/netclient.mjs';
 
 export function renderTool(app, tool) {
   const view = $('#view-tool');
@@ -23,7 +24,7 @@ export function renderTool(app, tool) {
       <a class="back" href="${tool.cat ? '#/cat/' + tool.cat : '#/'}">${tool.cat ? '← 返回' + (CATS[tool.cat]?.name || '全部工具') : '← 返回全部工具'}</a>
       <div class="tool-title">
         <span class="tool-ico cat-${tool.cat}">${iconSvg(tool.icon)}</span>
-        <div><h1>${esc(tool.name)}</h1><p>${esc(tool.desc || '')}</p></div>
+        <div><h1>${esc(tool.name)}</h1><p>${esc(tool.desc || '')}</p>${tool.clientNet ? '<p class="net-origin">🔒 探测请求由你自己的浏览器发起，服务器只托管页面，不接触扫描目标</p>' : ''}</div>
       </div>
     </div>
     <div class="workspace">
@@ -95,6 +96,25 @@ export function renderTool(app, tool) {
     const fields = { ...(tool.fixed || {}), ...(fieldsBox ? readFields(fieldsBox, tool.fields) : {}) };
     const payload = files.map((f) => ({ field: tool.field || 'files', file: f, name: f.name }));
     setBusy(runBtn, true);
+    // 网络安全工具：请求直接由用户浏览器发起，服务器不碰目标
+    if (tool.clientNet) {
+      hint.textContent = '正在从本机发起探测…';
+      try {
+        const out = await runNetClient(tool.action, fields);
+        currentData = { tool: tool.name, origin: '浏览器本机', note: out.note, ...out.data };
+        dataJson.textContent = JSON.stringify(currentData, null, 2);
+        $('[data-data-title]', view).textContent = (tool.name || '结果') + ' · 本机发起 · ' + new Date().toLocaleString();
+        dataPanel.hidden = false;
+        hint.textContent = out.note || '';
+        toast('完成（本机发起）');
+      } catch (err) {
+        toast(err.message, 'error', 6000);
+        hint.textContent = '';
+      } finally {
+        setBusy(runBtn, false, isData ? '开始检测' : '开始处理');
+      }
+      return;
+    }
     hint.textContent = '正在处理…';
     clearResults(results);
     dataPanel.hidden = true;

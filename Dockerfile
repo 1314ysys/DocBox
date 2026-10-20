@@ -1,6 +1,6 @@
-# DocBox 0.2.0 · 单镜像（Node 应用 + MariaDB + FFmpeg + 中文 OCR/语音模型）
-# 构建：podman build -t docbox:0.2.0 -f Dockerfile .
-# 运行：podman run -d --name docbox -p 3000:3000 -v docbox-data:/data docbox:0.2.0
+# DocBox 0.3.0 · 单镜像（Node 应用 + MariaDB + FFmpeg + 中文 OCR/语音模型 + yt-dlp）
+# 构建：podman build -t docbox:0.3.0 -f Dockerfile .
+# 运行：podman run -d --name docbox -p 3000:3000 -v docbox-data:/data docbox:0.3.0
 FROM docker.m.daocloud.io/library/node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -20,11 +20,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # 系统依赖：FFmpeg、中文字体、Python（APM 降噪）、MariaDB、tini
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg traceroute iproute2 fonts-wqy-zenhei fontconfig \
-      python3 python3-numpy python3-fonttools python-is-python3 \
+      python3 python3-pip python3-numpy python3-fonttools python-is-python3 \
       mariadb-server mariadb-client \
       ca-certificates curl tini tzdata xz-utils \
     && fc-cache -f >/dev/null 2>&1 \
     && rm -rf /var/lib/apt/lists/*
+
+# 视频网站解析：yt-dlp（B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷 等，构建期装好，运行时不联网下载）
+RUN pip3 install --no-cache-dir --break-system-packages -U yt-dlp \
+    && yt-dlp --version
 
 # pdf-lib 不能直接嵌入 TTC 字体集合：构建期从文泉驿 TTC 抽出 TTF
 RUN mkdir -p /usr/share/fonts/truetype/docbox \

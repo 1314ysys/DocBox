@@ -93,6 +93,7 @@ function setMode(mode) {
   $('#ocrFile').multiple = cfg.multiple;
   $('#ocrRun').textContent = cfg.run;
   $('#ocrOpts').hidden = mode !== 'file' && mode !== 'live';
+  if ($('#ocrModeRow')) $('#ocrModeRow').hidden = mode === 'file' || mode === 'live';
   $('#ocrModeWrap').hidden = mode === 'live';
   $('#ocrRun').disabled = mode === 'live' ? false : true;
   if (mode === 'live') $('#ocrRun').disabled = false;
@@ -136,6 +137,11 @@ async function run() {
 }
 
 /* ---------------- OCR（图片 / PDF） ---------------- */
+function ocrMode() {
+  const el = $('#ocrMode');
+  return el ? el.value : 'both';
+}
+
 async function runOcr() {
   st.busy = true;
   const btn = $('#ocrRun');
@@ -151,8 +157,9 @@ async function runOcr() {
     if (st.mode === 'image') {
       hint.textContent = '正在识别 ' + st.files.length + ' 张图片…';
       bar.style.width = '40%';
-      const data = await postForm('/api/ocr/batch', { files: st.files.map((f) => ({ field: 'files', file: f, name: f.name })) });
+      const data = await postForm('/api/ocr/batch', { files: st.files.map((f) => ({ field: 'files', file: f, name: f.name })), fields: { mode: ocrMode() } });
       text = data.pages.map((p, i) => (data.pages.length > 1 ? '===== ' + (i + 1) + '. ' + p.name + ' =====\n' : '') + p.text).join('\n\n');
+      if (data.barcodes && data.barcodes.length) text = text + '\n\n===== 条码 / 二维码 =====\n' + data.barcodes.map((b) => '[' + b.format + '] ' + b.text + (b.page ? '（' + b.page + '）' : '')).join('\n');
       conf = Math.round(data.pages.reduce((s, p) => s + p.confidence, 0) / Math.max(1, data.pages.length));
       bar.style.width = '100%';
     } else {
@@ -175,17 +182,25 @@ async function runOcr() {
       const chunks = [];
       for (let i = 0; i < pages.length; i += 8) chunks.push(pages.slice(i, i + 8));
       const parts = [];
+      const foundBarcodes = [];
       let confSum = 0;
       let confCount = 0;
       for (let c = 0; c < chunks.length; c++) {
         hint.textContent = '正在识别第 ' + (c + 1) + ' / ' + chunks.length + ' 批…';
-        const data = await postForm('/api/ocr/batch', { files: chunks[c].map((p) => ({ field: 'files', file: p.blob, name: p.name })) });
-        for (const p of data.pages) parts.push(p.text);
+        const data = await postForm('/api/ocr/batch', {
+          files: chunks[c].map((p) => ({ field: 'files', file: p.blob, name: p.name })),
+          fields: { mode: ocrMode() },
+        });
+        for (const p of data.pages) {
+          parts.push(p.text);
+          for (const b of p.barcodes || []) foundBarcodes.push({ ...b, page: p.name });
+        }
         confSum += data.pages.reduce((s, p) => s + p.confidence, 0);
         confCount += data.pages.length;
         bar.style.width = (70 + ((c + 1) / chunks.length) * 25).toFixed(0) + '%';
       }
       text = parts.map((t, i) => '===== 第 ' + (i + 1) + ' 页 =====\n' + t).join('\n\n');
+      if (foundBarcodes.length) text += '\n\n===== 条码 / 二维码 =====\n' + foundBarcodes.map((b) => '[' + b.format + '] ' + b.text + '（' + b.page + '）').join('\n');
       conf = Math.round(confSum / Math.max(1, confCount));
       bar.style.width = '100%';
     }
