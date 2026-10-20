@@ -1,6 +1,6 @@
-# DocBox 0.3.1 · 单镜像（Node 应用 + MariaDB + FFmpeg + 中文 OCR/语音模型 + yt-dlp）
-# 构建：podman build -t docbox:0.3.1 -f Dockerfile .
-# 运行：podman run -d --name docbox -p 3000:3000 -v docbox-data:/data docbox:0.3.1
+# DocBox 0.3.2 · 单镜像（Node 应用 + MariaDB + FFmpeg + 中文 OCR/语音模型 + yt-dlp）
+# 构建：podman build -t docbox:0.3.2 -f Dockerfile .
+# 运行：podman run -d --name docbox -p 3000:3000 -v docbox-data:/data docbox:0.3.2
 FROM docker.m.daocloud.io/library/node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \

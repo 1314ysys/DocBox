@@ -78,7 +78,7 @@ async function fetchKey(key) {
 }
 
 /** 下载全部分片到目录，返回分片路径数组（自动解密 AES-128） */
-export async function downloadSegments(playlist, dir, { concurrency = 6, onProgress, signal } = {}) {
+export async function downloadSegments(playlist, dir, { concurrency = 6, onProgress, signal, headers } = {}) {
   await fsp.mkdir(dir, { recursive: true });
   const keys = new Map();
   const total = playlist.segments.length;
@@ -92,7 +92,7 @@ export async function downloadSegments(playlist, dir, { concurrency = 6, onProgr
       const name = 'seg-' + String(seg.index).padStart(5, '0') + '.ts';
       const file = path.join(dir, name);
       if (signal && signal.aborted) throw new Error('已取消');
-      const res = await fetch(seg.url, { headers: headersFor(seg.url), signal: signal || AbortSignal.timeout(60000) });
+      const res = await fetch(seg.url, { headers: { ...headersFor(seg.url), ...(headers || {}) }, signal: signal || AbortSignal.timeout(60000) });
       if (!res.ok) throw new Error('分片下载失败：HTTP ' + res.status + ' ' + seg.url);
       let buf = Buffer.from(await res.arrayBuffer());
       if (seg.key && seg.key.method === 'AES-128') {

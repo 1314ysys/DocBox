@@ -3,7 +3,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { ah } from '../lib/async.mjs';
 import { TMP_DIR } from '../config.mjs';
-import { resolveSource, download, ytdlpStatus } from '../lib/video.mjs';
+import { resolveSource, download, ytdlpStatus, installYtdlp } from '../lib/video.mjs';
 import { createTasks, listTasks, getTask, cancelTask, retryTask, removeTask, clearTasks } from '../lib/video-tasks.mjs';
 import { logJob } from '../lib/track.mjs';
 import { sendResult } from '../lib/files.mjs';
@@ -12,8 +12,13 @@ export const videoRouter = express.Router();
 
 const isUrl = (u) => /^https?:\/\//i.test(String(u || '').trim());
 
+videoRouter.post('/api/video/ytdlp/install', ah(async (_req, res) => {
+  const r = await installYtdlp();
+  res.json({ ok: r.ok, data: r, note: r.ok ? 'yt-dlp ' + (r.version || '') + ' 安装完成（' + r.via + '）' : '安装失败：' + ((r.steps || []).map((s) => s.via + ':' + s.detail).join(' | ') || '') });
+}));
+
 videoRouter.get('/api/video/status', ah(async (_req, res) => {
-  const ytdlp = await ytdlpStatus();
+  const ytdlp = await ytdlpStatus(true);
   res.json({
     ok: true,
     ytdlp,
@@ -35,7 +40,7 @@ videoRouter.post('/api/video/probe', ah(async (req, res) => {
 /** 单条下载（同步返回文件） */
 videoRouter.post('/api/video/download', ah(async (req, res) => {
   const url = String(req.body?.url || '').trim();
-  const format = String(req.body?.format || '').trim();
+  const format = req.body?.format; // 可以是格式对象（含 dash/headers），也可以是 id 字符串
   const manifest = String(req.body?.manifest || '').trim();
   if (!isUrl(url)) return res.status(400).json({ error: '请填写完整的 http(s) 视频链接' });
   const dir = path.join(TMP_DIR, 'video-' + Date.now().toString(36));

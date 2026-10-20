@@ -3,7 +3,7 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.3.1` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 批量下载任务队列**（网页自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 188 项冒烟断言全通过
+`v0.3.2` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 批量下载任务队列**（网页自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 189 项冒烟断言全通过
 
 ---
 
@@ -21,11 +21,39 @@ powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
 sudo bash deploy/install-linux.sh --port 3000
 ```
 
-- 镜像包 `version/0.3.1/docbox-0.3.1-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
+- 镜像包 `version/0.3.2/docbox-0.3.2-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
 - 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
 
 细节、参数与常见问题见 **[deploy/README.md](deploy/README.md)**；  接手/二次开发/发版流程见 **[docs/HANDOVER.md](docs/HANDOVER.md)**（部署 · 改功能 · 发版 · 注意事项 · 故障排查）。
+
+---
+
+## 0.3.2 有什么变化
+
+> 主题：**「链接解析不了」修好了——站点内置解析 + yt-dlp 一键安装 + 解析过程看得见。**
+
+### 站点内置解析（不依赖 yt-dlp）
+
+- 新增 `src/lib/sites.mjs`，首个支持**哔哩哔哩**：`view` 接口拿标题封面 → `playurl` 拿流，**DASH 优先**（视频+音频分开，ffmpeg 合成），拿不到再退回 `platform=html5` 的 MP4 直链（免登录常见 720P）；
+- 支持 `BV` / `av` / `b23.tv` 短链；画质码转人话（`64→720P`、`80→1080P`、`116→1080P60`、`120→4K`）；贴 Cookie 到 `DOCBOX_BILI_COOKIE` 可解锁更高画质；
+- 解析顺序变成：**站点内置 → yt-dlp → 网页抓取**，任一步成功即返回。
+
+### yt-dlp：自动发现 + 一键安装
+
+- 检测 `DOCBOX_YTDLP` → `docbox/bin/yt-dlp` → PATH → `python -m yt_dlp`；
+- 页面右上角显示引擎状态，没有 yt-dlp 时出现 **「一键安装 yt-dlp」** 按钮（`POST /api/video/ytdlp/install`，先 pip、失败再下官方单文件）；
+- 命令行也可以用 `node scripts/fetch-ytdlp.mjs`。
+
+### 解析过程看得见 + 不再空转
+
+- 结果里新增「解析过程」折叠块，逐步显示站点内置 / yt-dlp / 抓网页（HTTP 状态、大小、命中数）/ iframe / m3u8 解析，每步 ✓ 或 ✗ 带原因；
+- yt-dlp 探测加 60 秒进程级超时与 `--retries` 限制，站点不可达时一分钟内明确报错；错误行过滤掉 Python 弃用噪音；
+- 失败提示改为可操作文案（未装 yt-dlp / yt-dlp 报错原因 / 网页里确实没有 m3u8）。
+
+### 下载链路补全
+
+- `download()` 改为接收**格式对象**：`dash`（视频+音频+ffmpeg 合成）/ `hls` / `file`（带 Referer/Cookie）/ `ytdlp` 四种；HLS 分片支持自定义请求头；批量任务同样走这套。
 
 ---
 

@@ -5,7 +5,7 @@
 
 | 内容 | 说明 |
 | --- | --- |
-| 镜像 | `docbox:0.3.1`（加载自 `docbox-0.3.1-image.tar`，约 3.4 GB） |
+| 镜像 | `docbox:0.3.2`（加载自 `docbox-0.3.2-image.tar`，约 3.4 GB） |
 | 端口 | 宿主机 `3000` → 容器 `3000` |
 | 数据卷 | 默认命名卷 `docbox-data` → `/data`（MariaDB 数据、上传、产物、缓存） |
 | 默认账号 | `root / root`（首次登录后请到「账户管理」改密码） |
@@ -18,14 +18,14 @@ deploy/
 ├── install-windows.ps1        # Windows 一键部署（自动装 podman / 初始化虚拟机 / 载入镜像 / 起容器）
 ├── install-linux.sh           # Linux 一键部署（apt/dnf/zypper/pacman 自动装 podman）
 ├── docker-entrypoint.sh       # 容器入口（初始化 MariaDB → 建库建号 → 启动应用）
-└── docbox-0.3.1-image.tar     # 由发行包提供：podman save 导出的镜像（也支持 .tar.gz）
+└── docbox-0.3.2-image.tar     # 由发行包提供：podman save 导出的镜像（也支持 .tar.gz）
 ```
 
 ## Windows 一键部署
 
 前置：Windows 10/11（x64），有网络（首次安装 Podman 和初始化虚拟机）。
 
-1. 把 `docbox-0.3.1-image.tar` 放到 `deploy\` 目录（或留在一键脚本同级）。
+1. 把 `docbox-0.3.2-image.tar` 放到 `deploy\` 目录（或留在一键脚本同级）。
 2. 右键 `install-windows.ps1` → **使用 PowerShell 运行**；或：
 
    ```powershell
@@ -35,7 +35,7 @@ deploy/
 3. 脚本会自动：
    - 检测 podman，缺失则 `winget install RedHat.Podman`；
    - `podman machine init/start`（首次自动创建 4 核 / 6 GB / 80 GB 的虚拟机）；
-   - `podman load -i docbox-0.3.1-image.tar`；
+   - `podman load -i docbox-0.3.2-image.tar`；
    - 创建数据卷并以 `--restart=always` 启动容器；
    - 轮询 `/api/health`，就绪后打开浏览器。
 
@@ -62,7 +62,7 @@ sudo bash deploy/install-linux.sh --boot         # 额外生成 systemd 用户�
 
 ```bash
 curl http://127.0.0.1:3000/api/health
-# {"ok":true,"version":"0.3.1", ...}
+# {"ok":true,"version":"0.3.2", ...}
 podman logs -f docbox      # 查看启动日志
 ```
 

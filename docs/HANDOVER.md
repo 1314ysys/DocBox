@@ -363,3 +363,40 @@ podman exec docbox mariadb-dump -u root -proot docbox > docbox-db-backup.sql
 - 新增/调整解析规则改 `resolveSource`，不要在路由里写正则；
 - 下载接口要带 `signal`，否则任务取消不生效；
 - 想提高吞吐调 `DOCBOX_VIDEO_PARALLEL`，但注意站点限速与本机带宽。
+
+
+---
+
+## 14. 0.3.2：解析失败排查与站点适配
+
+### 14.1 解析顺序（src/lib/video.mjs · resolveSource）
+
+1. 链接本身是 `.m3u8` → HLS 解析
+2. **站点内置解析**（`src/lib/sites.mjs`）→ 目前有哔哩哔哩：`view` + `playurl`（DASH 优先，durl 兜底）
+3. **yt-dlp**（如可用）→ `-J`，站内 m3u8 优先
+4. **网页抓取** → 正则找 m3u8/直链，必要时跟进 iframe 一层
+
+每一步都写进 `info.diagnose.steps`，前端「解析过程」折叠块直接展示，排查时先看它。
+
+### 14.2 新增/改动的坑位
+
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| 「未检测到 yt-dlp」 | 宿主机没装 / 不在 PATH | 页面点「一键安装」或 `python -m pip install -U yt-dlp`；也可 `node scripts/fetch-ytdlp.mjs`，或设置 `DOCBOX_YTDLP` |
+| B 站只有 480P/720P | 未登录 Cookie | 把浏览器 Cookie 贴进 `DOCBOX_BILI_COOKIE` 再重启 |
+| yt-dlp 报 Python 3.10 弃用警告 | 只是警告，不是失败原因 | 已过滤，真正原因看 `ERROR:` 行 |
+| 某站点一直转圈 | 该站当前网络不可达 | 已加 60s 超时，会明确报「不可达/超时」 |
+| DASH 下完没声音 | 音频流单独，需合并 | `download()` 已自动 ffmpeg 合成；若合成失败会退回纯视频并标注 `dash-video` |
+
+### 14.3 新增接口 / 脚本
+
+- `POST /api/video/ytdlp/install`：一键安装/升级 yt-dlp（pip → 官方二进制）
+- `node scripts/fetch-ytdlp.mjs [--binary]`：命令行安装
+- `GET /api/video/status`：返回 `ytdlp: {available, version, bin, install}`
+
+### 14.4 再加一个站点怎么做
+
+1. `src/lib/sites.mjs` 里加 `matchSite()` 规则与 `resolveXxx(url)`；
+2. 返回统一结构：`{kind:'site', engine, title, thumbnail, duration, formats:[{id,type:'hls'|'file'|'dash',url,audioUrl,height,note,headers}], streams}`；
+3. `type:'dash'` 记得给 `audioUrl`，下载会自动合成；
+4. 需要登录态的站点，把 Cookie 头放进 `headers`（参考 B 站 `DOCBOX_BILI_COOKIE`）。

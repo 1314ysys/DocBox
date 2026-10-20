@@ -50,10 +50,7 @@ export function renderVideo() {
       '</div>' +
     '</div>';
 
-  getJson('/api/video/status').then((data) => {
-    const el = $('[data-engine]', view);
-    if (el) el.textContent = data.ytdlp?.available ? '引擎：yt-dlp ' + data.ytdlp.version + ' + HLS' : '引擎：内置 HLS 下载器（未检测到 yt-dlp）';
-  }).catch(() => {});
+  refreshEngine(view);
 
   $('#videoParse', view).addEventListener('click', () => parseOne(view));
   $('#videoUrl', view).addEventListener('keydown', (e) => { if (e.key === 'Enter') parseOne(view); });
@@ -66,6 +63,31 @@ export function renderVideo() {
     if (!document.getElementById('view-video') || document.getElementById('view-video').hidden) { cleanupVideo(); return; }
     refreshTasks(view, true);
   }, 3000);
+}
+
+function refreshEngine(view) {
+  getJson('/api/video/status').then((data) => {
+    const el = $('[data-engine]', view);
+    if (!el) return;
+    if (data.ytdlp?.available) {
+      el.innerHTML = '<span class="tag ok">yt-dlp ' + esc(data.ytdlp.version) + '</span> <span class="tag">HLS 引擎</span>';
+      return;
+    }
+    el.innerHTML = '<span class="tag warn">未检测到 yt-dlp</span> ' +
+      '<button class="btn btn-sm btn-primary" id="videoInstallYtdlp">一键安装 yt-dlp</button>';
+    const btn = $('#videoInstallYtdlp', view);
+    if (btn) btn.addEventListener('click', async () => {
+      setBusy(btn, true, '安装中…');
+      try {
+        const r = await postJson('/api/video/ytdlp/install', {});
+        toast(r.note || '安装完成', r.ok ? 'ok' : 'error', 8000);
+        refreshEngine(view);
+      } catch (e) {
+        toast(e.message, 'error', 10000);
+        setBusy(btn, false, '一键安装 yt-dlp');
+      }
+    });
+  }).catch(() => {});
 }
 
 /* ---------------- 单条解析 ---------------- */
@@ -108,6 +130,7 @@ function renderInfo(box, info, sourceUrl) {
       '<p class="muted">站点：' + esc(info.site || '未知') + (info.duration ? ' · 时长 ' + Math.round(info.duration) + 's' : '') + (info.uploader ? ' · ' + esc(info.uploader) : '') + '</p>' +
       (info.manifest ? '<p class="muted">m3u8：' + esc(String(info.manifest).slice(0, 96)) + '</p>' : '') +
       (info.reason ? '<p class="warn-note">' + esc(info.reason) + '</p>' : '') +
+      renderDiag(info) +
     '</div></div>' +
     (rows ? '<div class="video-fmts">' + rows + '</div>' : '') +
     '<div class="run-bar">' +
@@ -130,9 +153,9 @@ function renderInfo(box, info, sourceUrl) {
       dlHint.textContent = '正在下载，长视频请耐心等待…';
       try {
         const res = await postJson('/api/video/download', {
-          url: f && f.type === 'hls' ? f.url : sourceUrl,
+          url: sourceUrl,
           manifest: info.manifest || '',
-          format: f && f.type === 'hls' ? '' : (f ? f.id : ''),
+          format: f || {},
         });
         const file = res.files && res.files[0];
         if (!file) throw new Error('没有生成文件');
@@ -158,6 +181,14 @@ function renderInfo(box, info, sourceUrl) {
       } catch (e) { toast(e.message, 'error', 6000); }
     });
   }
+}
+
+function renderDiag(info) {
+  const steps = (info.diagnose && info.diagnose.steps) || [];
+  if (!steps.length) return '';
+  const rows = steps.map((s) =>
+    '<li class="' + (s.ok ? 'ok' : 'bad') + '"><b>' + esc(s.step) + '</b>' + (s.ok ? ' ✓' : ' ✗') + ' · ' + esc(s.detail || '') + '</li>').join('');
+  return '<details class="video-diag"><summary>解析过程（点开看每一步）</summary><ul>' + rows + '</ul></details>';
 }
 
 /* ---------------- 批量 ---------------- */

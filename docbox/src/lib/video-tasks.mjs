@@ -117,13 +117,14 @@ async function runTask(t) {
       throw new Error(info.reason || '没有解析到可下载的视频流');
     }
     const picked = pickFormat(info, t.format);
-    touch(t, { status: 'downloading', progress: 5, format: picked.url || picked.id || '' });
+    touch(t, { status: 'downloading', progress: 5, format: picked.note || picked.id || '' });
 
     await fsp.mkdir(workdir, { recursive: true });
     const result = await download({
-      url: picked.type === 'hls' ? picked.url : t.url,
-      format: picked.type === 'hls' ? t.format || '' : picked.id,
-      manifest: picked.type === 'hls' ? picked.url : info.manifest,
+      url: t.url,
+      format: picked,
+      manifest: info.manifest,
+      headers: info.headers,
       dir: workdir,
       signal,
       onProgress: (done, total) => {

@@ -1037,3 +1037,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .vt-status.failed { color: #dc2626; }
 .vt-actions { display: flex; gap: 4px; }
 .tag { font-size: 11px; color: #0369a1; background: #e0f2fe; border-radius: 5px; padding: 1px 6px; }
+
+/* ---------------- 视频解析诊断 ---------------- */
+.video-diag { margin-top: 6px; font-size: 12px; color: #475569; }
+.video-diag summary { cursor: pointer; color: #0369a1; }
+.video-diag ul { margin: 6px 0 0 16px; padding: 0; }
+.video-diag li { margin: 2px 0; }
+.video-diag li.ok b { color: #059669; }
+.video-diag li.bad b { color: #dc2626; }
+.tag.ok { color: #047857; background: #d1fae5; }
+.tag.warn { color: #b45309; background: #fef3c7; }

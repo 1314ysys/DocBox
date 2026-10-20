@@ -108,7 +108,7 @@ record('管理员拥有全部模块', (login.payload.user?.modules || []).length
 const me = await getJson('登录态回读', '/api/auth/me');
 record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
 const health = await getJson('健康检查（免登录）', '/api/health');
-record('版本号 0.3.1', health.version === '0.3.1', 0, health.version);
+record('版本号 0.3.2', health.version === '0.3.2', 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
 record('套件 57 + 自研 34 - 重复 2 = 89', app.suiteToolCount === 57 && app.nativeToolCount === 34 && app.toolCount === 89, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');
@@ -121,7 +121,9 @@ const ncRes = await fetch(BASE + '/js/core/netclient.mjs');
 const ncText = ncRes.ok ? await ncRes.text() : '';
 record('本机网络探测引擎已内置', ncRes.ok && ncText.includes('浏览器本机') && ncText.includes('runNetClient'), 0, ncText.length + ' bytes');
 const vpRes = await fetch(BASE + '/js/views/video.mjs');
+const vpText = vpRes.ok ? await vpRes.text() : '';
 record('视频解析前端页面已内置', vpRes.ok, 0, 'video.mjs ' + (vpRes.ok ? 'OK' : 'MISSING'));
+record('视频页一键安装 yt-dlp 入口', vpText.includes('一键安装 yt-dlp') && vpText.includes('解析过程'), 0, vpText.length + ' bytes');
 const vtRes = await fetch(BASE + '/api/video/tasks', { headers: authHeaders() });
 const vtBody = await vtRes.json().catch(() => ({}));
 record('视频批量任务列表', vtRes.ok && vtBody.ok === true && Array.isArray(vtBody.tasks), 0, (vtBody.tasks || []).length + ' 条任务');
