@@ -44,8 +44,9 @@
     "tar": "docbox-0.2.0-image.tar",
     "note": "podman save 导出，脚本内 podman load",
     "archive": "version/0.2.0/docbox-0.2.0-image.tar",
-    "size": "3.21 GB",
+    "size": "3.35 GB",
     "base": "node:22-bookworm-slim",
-    "contents": "Node 22 + MariaDB 10.11 + FFmpeg 5.1 + 中文字体 + sherpa 语音模型(420MB) + Python/numpy APM"
+    "contents": "Node 22 + MariaDB 10.11 + FFmpeg 5.1 + 中文字体 + sherpa 语音模型(420MB) + Python/numpy APM",
+    "verified": "podman 载入后启动健康检查 200；容器内 tools-check 91/94（3 项失败均需外网）"
   }
 }
