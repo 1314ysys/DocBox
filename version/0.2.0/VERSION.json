@@ -20,7 +20,9 @@
     "RDAP 查询缺少 User-Agent 导致 403",
     "模型被 tmp 清理误删导致每次重启重新下载",
     "无浏览器环境文档转 PDF 失败（新增纯文本 PDF 兜底）",
-    "PDF 中文水印 WinAnsi 编码错误（改用 TTF 字体）"
+    "PDF 中文水印 WinAnsi 编码错误（改用 TTF 字体）",
+    "容器内 ffprobe 缺执行权限（EACCES）",
+    "Linux 下路由追踪/本机网络命令改用 traceroute/ip/ss"
   ],
   "features": [
     "Podman 单镜像（Node + MariaDB + FFmpeg + 中文模型）",
@@ -34,7 +36,8 @@
       "passed": 181
     },
     "toolsCheck": "93/94（失败项仅 net-subdomain：crt.sh HTTP 502）",
-    "note": "自检脚本会缺夹具时自动生成；tmp 清理不再影响 models/"
+    "note": "自检脚本会缺夹具时自动生成；tmp 清理不再影响 models/",
+    "container": "91/94（失败 3 项均为需要外网的探测：net-rdap / net-methods / net-subdomain）"
   },
   "image": {
     "name": "docbox:0.2.0",

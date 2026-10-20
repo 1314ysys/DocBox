@@ -19,7 +19,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # 系统依赖：FFmpeg、中文字体、Python（APM 降噪）、MariaDB、tini
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ffmpeg fonts-wqy-zenhei fontconfig \
+      ffmpeg traceroute iproute2 fonts-wqy-zenhei fontconfig \
       python3 python3-numpy python3-fonttools python-is-python3 \
       mariadb-server mariadb-client \
       ca-certificates curl tini tzdata xz-utils \
@@ -40,7 +40,8 @@ COPY docbox/package.json ./package.json
 # --ignore-scripts：@xenova/transformers 内嵌的 sharp 0.32 会去 GitHub 下载 libvips（国内不可达）；
 # 根依赖 sharp 0.33 用 @img/sharp-linux-x64 预编译包，无需下载。装完立刻验证 sharp 可用。
 RUN npm install --omit=dev --ignore-scripts --no-audit --no-fund \
-    && node -e "const s=require('sharp'); console.log('sharp', s.versions.sharp)"
+    && node -e "const s=require('sharp'); console.log('sharp', s.versions.sharp)" \
+    && chmod +x node_modules/@ffprobe-installer/linux-x64/ffprobe node_modules/@ffmpeg-installer/linux-x64/ffmpeg 2>/dev/null || true
 
 # VAD 运行时（onnxruntime-node）单独一层
 COPY docbox/vad-runtime/package.json ./vad-runtime/package.json

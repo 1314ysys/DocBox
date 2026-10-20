@@ -18,7 +18,9 @@
 - **RDAP 查询偶发 403**：补 `User-Agent` 并把超时从 15s 提到 20s；
 - **语音模型被自己删掉（容器里暴露）**：模型原本放 `tmp/models`，而启动时 `cleanupRuntime()` 会清空 tmp，导致每次重启都要重新下载 420MB → 模型改存 `models/`（新增 `DOCBOX_MODELS_DIR`），tmp 只放临时文件；
 - **无 Edge/Chrome 时文档转 PDF 直接失败**：新增纯文本 PDF 兜底渲染（`src/lib/htmltext-pdf.mjs`），容器/服务器上 doc→PDF、公文排版、批量转换都能出稿；
-- **PDF 中文水印报 WinAnsi**：pdf-lib 不能嵌入 TTC 字体集合，镜像改用 TTF（simhei.ttf）并通过 `DOCBOX_FONT` 指定。
+- **PDF 中文水印报 WinAnsi**：pdf-lib 不能嵌入 TTC 字体集合，镜像改用 TTF 并通过 `DOCBOX_FONT` 指定；
+- **容器里媒体工具报 ffprobe EACCES**：`--ignore-scripts` 装依赖后预编译二进制没有执行位，构建期 `chmod +x` 修好；
+- **Linux 下「路由追踪」调 Windows 的 tracert**：系统命令按平台翻译（traceroute / ip / ss），镜像内装 traceroute 与 iproute2。
 
 ### 自检脚本
 

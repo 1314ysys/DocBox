@@ -21,7 +21,7 @@ powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
 sudo bash deploy/install-linux.sh --port 3000
 ```
 
-- 镜像包 `docbox-0.2.0-image.tar`（`podman save` 导出，约 1.7GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
+- 镜像包 `version/0.2.0/docbox-0.2.0-image.tar`（`podman save` 导出，约 3.2GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
 - 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
 
@@ -36,8 +36,8 @@ sudo bash deploy/install-linux.sh --port 3000
 ### 全工具自检（93/94，含 57 个套件工具 + 33 个原生工具）
 
 - 新增 `npm run tools:check`：自动生成测试夹具（PDF/图片/音视频/Word/Excel/PPTX/Markdown），逐个真实调用 57 个套件工具与 33 个原生接口，下载产物校验大小；
-- **修掉 2 个真实缺陷**：图片轮播（slideshow）输出高度不是偶数导致 libx264 失败；RDAP 查询补 User-Agent 与超时；
-- 2 项失败为外部服务不可用（rdap.org 403、crt.sh 502），代码路径已验证。
+- **修掉 7 个真实缺陷**：图片轮播输出高度非偶数导致 libx264 失败；RDAP 补 User-Agent 与超时；语音模型被 tmp 清理误删（每次重启都要重下 420MB）；无浏览器环境文档转 PDF 直接失败；PDF 中文水印 WinAnsi 编码报错；容器里 ffprobe 缺执行权限；Linux 下「路由追踪」还在调 Windows 的 tracert；
+- 宿主机 93/94（唯一失败 crt.sh 502）；容器内 91/94，剩下 3 项都是需要外网的探测，容器无外网属环境限制。
 
 ### 容器化交付
 

@@ -5,7 +5,7 @@
 
 | 内容 | 说明 |
 | --- | --- |
-| 镜像 | `docbox:0.2.0`（加载自 `docbox-0.2.0-image.tar`） |
+| 镜像 | `docbox:0.2.0`（加载自 `docbox-0.2.0-image.tar`，约 3.2 GB） |
 | 端口 | 宿主机 `3000` → 容器 `3000` |
 | 数据卷 | 默认命名卷 `docbox-data` → `/data`（MariaDB 数据、上传、产物、缓存） |
 | 默认账号 | `root / root`（首次登录后请到「账户管理」改密码） |
@@ -18,7 +18,7 @@ deploy/
 ├── install-windows.ps1        # Windows 一键部署（自动装 podman / 初始化虚拟机 / 载入镜像 / 起容器）
 ├── install-linux.sh           # Linux 一键部署（apt/dnf/zypper/pacman 自动装 podman）
 ├── docker-entrypoint.sh       # 容器入口（初始化 MariaDB → 建库建号 → 启动应用）
-└── docbox-0.2.0-image.tar     # 由发行包提供：podman save 导出的镜像
+└── docbox-0.2.0-image.tar     # 由发行包提供：podman save 导出的镜像（也支持 .tar.gz）
 ```
 
 ## Windows 一键部署
@@ -86,3 +86,9 @@ podman logs -f docbox      # 查看启动日志
 **网络类工具（测速/DNS/WHOIS）失败**：这些工具需要宿主机能出网；容器内 DNS 与宿主机一致，代理环境请给 podman 虚拟机配同样的代理。
 
 **镜像多大**：`podman images docbox` 约 1.5~2 GB（含 Node 依赖、FFmpeg、MariaDB、SenseVoice/zipformer 语音模型）。
+
+## 已验证
+
+- 镜像可正常启动：MariaDB 10.11 初始化 + 建库建号 + 应用监听 3000，`/api/health` 返回 200；
+- 容器内实测通过：中文 PDF 水印、文档转 PDF（无浏览器时走纯文本兜底排版）、公文排版、SenseVoice 快速转写（模型已打包在镜像里，无需联网）、APM 降噪（python3 + numpy）；
+- 实测 `scripts/tools-check.mjs`：宿主机 **93/94**（唯一失败是 crt.sh 外部接口 502）；容器内 **91/94**，剩下 3 项全是需要外网的目标探测（RDAP / HTTP 方法探测 / crt.sh），容器无外网属部署环境限制，不是工具缺陷。

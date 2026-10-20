@@ -23,9 +23,25 @@ function withTimeout(promise, ms, label) {
   ]);
 }
 
+// Windows 系统命令在 Linux（容器）里换成等价工具，参数就地翻译
+function linuxCmd(cmd, args) {
+  switch (cmd) {
+    case 'ping.exe': return ['ping', ['-c', args[1], '-W', String(Math.max(1, Math.round(Number(args[3] || 1500) / 1000))), args[4]]];
+    case 'tracert.exe': return ['traceroute', ['-n', '-m', args[2], '-w', '2', args[5]]];
+    case 'ipconfig.exe': return ['ip', ['addr']];
+    case 'arp.exe': return ['ip', ['neigh']];
+    case 'netstat.exe': return ['ss', ['-tunap']];
+    default: return [cmd.replace(/\.exe$/i, ''), args];
+  }
+}
+
 function runWin(cmd, args, timeoutMs = 20000) {
+  const isWin = process.platform === 'win32';
+  const [exe, argv] = isWin ? [cmd, args] : linuxCmd(cmd, args);
   return new Promise((resolve, reject) => {
-    const child = spawn('cmd.exe', ['/d', '/c', 'chcp 65001 >nul && ' + cmd + ' ' + args.map((a) => (a.includes(' ') ? '"' + a + '"' : a)).join(' ')], { windowsHide: true });
+    const child = isWin
+      ? spawn('cmd.exe', ['/d', '/c', 'chcp 65001 >nul && ' + exe + ' ' + argv.map((a) => (a.includes(' ') ? '"' + a + '"' : a)).join(' ')], { windowsHide: true })
+      : spawn(exe, argv, { windowsHide: true });
     let out = '';
     const timer = setTimeout(() => { try { child.kill(); } catch { /* ignore */ } reject(new NetError('命令超时')); }, timeoutMs);
     child.stdout.on('data', (c) => { out += c.toString('utf8'); });
@@ -168,7 +184,7 @@ async function traceroute(f) {
   const parsed = lines.map((l) => {
     const idx = l.match(/^(\d+)/);
     const ips = [...l.matchAll(/(\d{1,3}(?:\.\d{1,3}){3})/g)].map((m) => m[1]);
-    const times = [...l.matchAll(/(\d+)\s*ms/g)].map((m) => Number(m[1]));
+    const times = [...l.matchAll(/(\d+(?:\.\d+)?)\s*ms/g)].map((m) => Math.round(Number(m[1])));
     return { hop: Number(idx[1]), ips: [...new Set(ips)], ms: times, timeout: /请求超时|timed out/i.test(l) };
   });
   return { data: { host, hops: parsed, raw: out.slice(0, 4000) }, note: `${host}：${parsed.length} 跳` };
