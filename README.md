@@ -3,7 +3,7 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.3.0` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析下载**（B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷，自带 HLS 下载器 + yt-dlp） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 186 项冒烟断言全通过
+`v0.3.1` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 批量下载任务队列**（网页自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 188 项冒烟断言全通过
 
 ---
 
@@ -21,11 +21,40 @@ powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
 sudo bash deploy/install-linux.sh --port 3000
 ```
 
-- 镜像包 `version/0.3.0/docbox-0.3.0-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
+- 镜像包 `version/0.3.1/docbox-0.3.1-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
 - 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
 
 细节、参数与常见问题见 **[deploy/README.md](deploy/README.md)**；  接手/二次开发/发版流程见 **[docs/HANDOVER.md](docs/HANDOVER.md)**（部署 · 改功能 · 发版 · 注意事项 · 故障排查）。
+
+---
+
+## 0.3.1 有什么变化
+
+> 主题：**网页 → m3u8 → 下载，一条链路；多条链接丢进队列，后台自己跑完。**
+
+### m3u8 解析改成「跟原始视频网站一致」的方式
+
+以前只认「链接本身就是 m3u8」，站点页面得自己先找 m3u8。现在 `resolveSource` 统一成一条链路：
+
+1. 链接本身是 m3u8 → 解析 master/meida，枚举码率；
+2. yt-dlp 可用 → `-J` 拿站点信息，**优先取其中的 m3u8 流**，交给自带 HLS 下载器；
+3. 普通网页 → 抓 HTML 与内嵌 JS（兼容 `\/`、`\u002F` 转义、`"url":"…m3u8"` 这类字段）找出 m3u8 / 直链，找到 m3u8 再解析码率；
+4. 页面里是 iframe 播放器 → 自动跟进去（最多 2 层）再抓。
+
+### 批量下载 + 任务列表
+
+- 一次贴多条 URL（一行一条，最多 50 条/次）→ 后台任务队列自动解析 + 下载，**关掉页面也继续跑**；
+- 并发 2（`DOCBOX_VIDEO_PARALLEL` 可调），状态 `queued → resolving → downloading → done/failed/canceled`；
+- 进度：HLS 按分片计数、直链按字节；可取消 / 重试 / 删除；任务落库 `video_tasks`，重启后历史还在（中断的会标记失败，可重试）；
+- 下载页面下半部分就是任务列表，3 秒自动刷新，离开页面自动停轮询；
+- 新增接口：`POST /api/video/batch`、`GET /api/video/tasks`、`POST /api/video/tasks/:id/{cancel,retry}`、`DELETE /api/video/tasks/:id`。
+
+### 其它
+
+- `hls.mjs` 分片/密钥请求补 `AbortSignal`（可取消）与统一 UA / Referer；
+- 冒烟断言 186 → **188**（批量任务列表、批量接口非法链接校验）；
+- 镜像与归档版本号 `0.3.1`。
 
 ---
 

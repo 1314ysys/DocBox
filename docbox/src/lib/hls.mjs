@@ -44,33 +44,41 @@ export function parsePlaylist(text, baseUrl) {
   return { isMaster, variants, segments, mediaSequence };
 }
 
-async function fetchText(url) {
-  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 DocBox', referer: new URL(url).origin + '/' }, signal: AbortSignal.timeout(30000) });
+export const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+
+function headersFor(url, extra = {}) {
+  let referer = '';
+  try { referer = new URL(url).origin + '/'; } catch { /* ignore */ }
+  return { 'user-agent': UA, accept: '*/*', ...(referer ? { referer } : {}), ...extra };
+}
+
+async function fetchText(url, signal) {
+  const res = await fetch(url, { headers: headersFor(url), signal: signal || AbortSignal.timeout(30000) });
   if (!res.ok) throw new Error('播放列表请求失败：HTTP ' + res.status);
   return res.text();
 }
 
 /** 取最终媒体播放列表（如果是 master，按码率挑一个子列表） */
-export async function resolvePlaylist(url, preferHeight = 0) {
-  const text = await fetchText(url);
+export async function resolvePlaylist(url, preferHeight = 0, signal) {
+  const text = await fetchText(url, signal);
   let parsed = parsePlaylist(text, url);
   if (!parsed.isMaster) return { url, ...parsed };
   if (!parsed.variants.length) throw new Error('主播放列表里没有可用码率');
   const pick = preferHeight
     ? parsed.variants.find((v) => Number((v.resolution.split('x')[1] || 0)) <= preferHeight) || parsed.variants[parsed.variants.length - 1]
     : parsed.variants[0];
-  const child = await fetchText(pick.url);
+  const child = await fetchText(pick.url, signal);
   return { url: pick.url, ...parsePlaylist(child, pick.url), variants: parsed.variants, picked: pick };
 }
 
 async function fetchKey(key) {
-  const res = await fetch(key.uri, { signal: AbortSignal.timeout(30000) });
+  const res = await fetch(key.uri, { headers: headersFor(key.uri), signal: AbortSignal.timeout(30000) });
   if (!res.ok) throw new Error('密钥请求失败：HTTP ' + res.status);
   return Buffer.from(await res.arrayBuffer());
 }
 
 /** 下载全部分片到目录，返回分片路径数组（自动解密 AES-128） */
-export async function downloadSegments(playlist, dir, { concurrency = 6, onProgress } = {}) {
+export async function downloadSegments(playlist, dir, { concurrency = 6, onProgress, signal } = {}) {
   await fsp.mkdir(dir, { recursive: true });
   const keys = new Map();
   const total = playlist.segments.length;
@@ -83,7 +91,8 @@ export async function downloadSegments(playlist, dir, { concurrency = 6, onProgr
       const seg = queue.shift();
       const name = 'seg-' + String(seg.index).padStart(5, '0') + '.ts';
       const file = path.join(dir, name);
-      const res = await fetch(seg.url, { headers: { 'user-agent': 'Mozilla/5.0 DocBox' }, signal: AbortSignal.timeout(60000) });
+      if (signal && signal.aborted) throw new Error('已取消');
+      const res = await fetch(seg.url, { headers: headersFor(seg.url), signal: signal || AbortSignal.timeout(60000) });
       if (!res.ok) throw new Error('分片下载失败：HTTP ' + res.status + ' ' + seg.url);
       let buf = Buffer.from(await res.arrayBuffer());
       if (seg.key && seg.key.method === 'AES-128') {

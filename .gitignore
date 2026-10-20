@@ -40,4 +40,5 @@ Thumbs.db
 tmp/
 
 docbox/testdata/t17/
+docbox/testdata/t18/
 docbox/tmp-gen-fixtures.mjs

@@ -16,7 +16,7 @@ import { renderAccounts } from './views/accounts.mjs';
 import { renderMdEditor } from './views/md-editor.mjs';
 import { renderMdTable } from './views/md-table.mjs';
 import { renderTerminal } from './views/terminal.mjs';
-import { renderVideo } from './views/video.mjs';
+import { renderVideo, cleanupVideo } from './views/video.mjs';
 import { renderLogin, hideLogin } from './views/login.mjs';
 
 history.scrollRestoration = 'manual';
@@ -144,6 +144,7 @@ function restoreScroll(y) {
 }
 
 function paint(head, arg) {
+  if (head !== 'video' && typeof cleanupVideo === 'function') cleanupVideo();
 
   const guard = (mod) => {
     if (can(mod)) return true;

@@ -114,7 +114,7 @@ export const NATIVE_TOOLS = [
   },
   { id: 'pdf-extract', cat: 'pdf', name: 'PDF 拆解导出', icon: 'eye', badge: '前端', route: '#/extract', desc: '导出页面图片、提取文字、查看页数' },
   { id: 'ocr', cat: 'ocr', name: 'OCR 与转写', icon: 'scan', badge: '离线', route: '#/ocr', desc: '图片 OCR · PDF 整本识别 · 音视频 Whisper 转写 · 麦克风实时转写' },
-  { id: 'video-parse', cat: 'media', name: '视频网站解析', icon: 'video', badge: '解析下载', route: '#/video', desc: '粘贴 B 站 / YouTube / 爱奇艺 / 腾讯视频 / 优酷 链接，解析 m3u8 与各清晰度并下载（不另建站点）' },
+  { id: 'video-parse', cat: 'media', name: '视频网站解析', icon: 'video', badge: '解析下载', route: '#/video', desc: '贴网页链接自动抓站内 m3u8、解析各清晰度下载；支持一行多条链接批量下载（后台任务队列，可取消/重试）' },
   { id: 'net-terminal', cat: 'net', name: 'SSH / Telnet 终端', icon: 'terminal', badge: '网页直连', route: '#/terminal', desc: '浏览器里直连服务器：SSH（22）与 Telnet（23），多会话标签，断线自动回收' },
   {
     id: 'doc-word-to-pdf', cat: 'doc', name: 'Word 转 PDF', icon: 'doc', badge: '本地',

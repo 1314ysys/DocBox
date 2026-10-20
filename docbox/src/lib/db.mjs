@@ -17,6 +17,21 @@ const state = {
 const CANDIDATE_PASSWORDS = [DB.password, '', 'root', '123456', 'mysql', 'password'];
 
 const SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS video_tasks (
+    id VARCHAR(32) NOT NULL PRIMARY KEY,
+    url VARCHAR(1024) NOT NULL,
+    title VARCHAR(255) NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'queued',
+    engine VARCHAR(16) NULL,
+    progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    file_name VARCHAR(255) NULL,
+    file_url VARCHAR(512) NULL,
+    file_size BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    error VARCHAR(512) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_vt_created (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
   `CREATE TABLE IF NOT EXISTS jobs (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     suite VARCHAR(24) NOT NULL,
@@ -274,6 +289,38 @@ export async function getSetting(k) {
 export async function setSetting(k, v) {
   await query('INSERT INTO settings (k, v) VALUES (?,?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [k, String(v)]);
   return true;
+}
+
+export async function saveVideoTask(task) {
+  try {
+    await query(
+      `INSERT INTO video_tasks (id, url, title, status, engine, progress, file_name, file_url, file_size, error)
+       VALUES (?,?,?,?,?,?,?,?,?,?)
+       ON DUPLICATE KEY UPDATE title=VALUES(title), status=VALUES(status), engine=VALUES(engine),
+         progress=VALUES(progress), file_name=VALUES(file_name), file_url=VALUES(file_url),
+         file_size=VALUES(file_size), error=VALUES(error)`,
+      [task.id, String(task.url).slice(0, 1000), String(task.title || '').slice(0, 250), task.status,
+       task.engine || null, Math.max(0, Math.min(100, Math.round(task.progress || 0))),
+       (task.file && task.file.name ? String(task.file.name).slice(0, 250) : null),
+       (task.file && task.file.url ? String(task.file.url).slice(0, 500) : null),
+       (task.file && task.file.size) || 0,
+       task.error ? String(task.error).slice(0, 500) : null],
+    );
+  } catch { /* 数据库不可用时任务只在内存里跑 */ }
+}
+
+export async function listVideoTasks(limit = 100) {
+  try {
+    return await query('SELECT * FROM video_tasks ORDER BY created_at DESC LIMIT ?', [Number(limit) || 100]);
+  } catch { return []; }
+}
+
+export async function deleteVideoTask(id) {
+  try { await query('DELETE FROM video_tasks WHERE id = ?', [String(id)]); } catch { /* ignore */ }
+}
+
+export async function clearVideoTasks() {
+  try { await query('DELETE FROM video_tasks'); } catch { /* ignore */ }
 }
 
 export async function closeDb() {

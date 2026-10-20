@@ -1,0 +1,39 @@
+{
+  "name": "DocBox",
+  "version": "0.3.1",
+  "channel": "stable",
+  "released": "2026-10-21",
+  "gitTag": "v0.3.1",
+  "summary": "视频解析融合「网页→m3u8→下载」链路（站点页面自动抓 m3u8，iframe 跟一层），新增批量下载后台任务队列与任务列表（取消/重试/删除/落库）；hls 支持中断取消。",
+  "counts": {
+    "tools": 89,
+    "suiteTools": 57,
+    "nativeTools": 34,
+    "netToolsClientSide": 16,
+    "smoke": 188
+  },
+  "features": [
+    "统一解析：m3u8 直链 / yt-dlp 站内 m3u8 / 网页抓取 / iframe 内嵌",
+    "批量下载任务队列（并发 2，可取消/重试/删除，落库 video_tasks）",
+    "任务列表实时进度（3s 轮询，离开页面自动停）",
+    "HLS 请求支持 AbortSignal 取消"
+  ],
+  "tests": {
+    "pageToM3u8": "通过（本地页面 JS 内嵌 m3u8，含 \\/ 转义）",
+    "batch": "2 条 URL 全部完成，产出 122KB MP4 ×2",
+    "taskOps": "retry / cancel / delete 通过",
+    "smoke": "188 / 188 通过",
+    "container": "容器内：health 0.3.1 + yt-dlp 2026.08.19 + 网页→m3u8 + 批量 2 任务全部 done（99KB ×2）"
+  },
+  "image": {
+    "name": "docbox:0.3.1",
+    "tar": "docbox-0.3.1-image.tar",
+    "note": "podman save 导出，脚本内 podman load",
+    "id": "071867ef3b3b6f43c64afd38eff2183561e201ab04504fa4ee826b08de1acbf1",
+    "sizeBytes": 3887537661,
+    "sizeGB": 3.89,
+    "tarSizeBytes": 3887593984,
+    "tarSha256": "d165d168eaec37b79c28e824239a671c8151276f98e2b1ad0d73a25f628d812a",
+    "tarNote": "podman save --format docker-archive 导出，已校验 sha256 一致；部署脚本内 podman load"
+  }
+}

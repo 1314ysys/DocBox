@@ -321,3 +321,45 @@ podman exec docbox mariadb-dump -u root -proot docbox > docbox-db-backup.sql
 - 仓库：GitHub（private，见下方推送说明）
 - 分支约定：main 为主干，发版打 vX.Y.Z 标签
 - 提交信息建议：feat/fix/docs/chore(范围): 说明，中文可
+
+
+---
+
+## 13. 0.3.1 新增：视频解析链路与批量下载
+
+### 13.1 解析链路（src/lib/video.mjs · resolveSource）
+
+| 顺序 | 条件 | 做法 | 产物 |
+| --- | --- | --- | --- |
+| 1 | URL 本身是 `.m3u8` | `resolvePlaylist` 解析 master/meida | 码率列表 |
+| 2 | yt-dlp 可用 | `yt-dlp -J` 取站点信息，**优先挑 protocol 含 m3u8 的流**再解析 | 码率列表 + 元数据 |
+| 3 | 普通网页 | 抓 HTML，正则扫 m3u8 / mp4 直链（兼容 `\/`、`\u002F`、JSON 字段） | m3u8 → 码率列表 |
+| 4 | 页面内嵌 iframe | 递归跟进（最多 2 层） | 同上 |
+
+要点：
+- 只要页面里出现 m3u8，**无 yt-dlp 也能下载**；
+- 抓到的 m3u8 一律交给内置 HLS 引擎（`hls.mjs`：并发分片 + AES-128 + ffmpeg 合成），不依赖第三方解析站；
+- 站点需要登录态/JS 渲染/地区解锁时仍会失败，属正常限制。
+
+### 13.2 批量任务队列（src/lib/video-tasks.mjs）
+
+- 建任务：`POST /api/video/batch {urls: [...]}`（一次最多 50 条，去重、过滤非 http）；
+- 状态机：`queued → resolving → downloading → done | failed | canceled`；
+- 并发：`DOCBOX_VIDEO_PARALLEL`（默认 2）；总量上限 200 条；
+- 进度：HLS 分片计数 / 直链字节数，写回任务对象（前端 3s 轮询 `GET /api/video/tasks`）；
+- 操作接口：`POST /api/video/tasks/:id/cancel`（AbortController 真取消）、`…/retry`、`DELETE /api/video/tasks/:id`、`DELETE /api/video/tasks`；
+- 落库：`video_tasks` 表（`db.mjs` 的 `saveVideoTask / listVideoTasks / deleteVideoTask / clearVideoTasks`）；**DB 不可用时自动降级为内存队列**；
+- 启动时 `restoreTasks()` 载入历史，未跑完的标记「服务重启，任务中断」可重试；
+- 产物落在 `outputs/`，任务里带 `file.url`，前端「下载」直接取回。
+
+### 13.3 前端
+
+- `public/js/views/video.mjs` 重写：上半单条解析（引擎、站内 m3u8、码率列表、下载/入队），下半批量输入 + 任务列表；
+- 轮询在离开 `#/video` 时自动停止（`cleanupVideo` 由 `main.mjs` 的 `paint` 调用）；
+- 样式在 `public/styles.css` 的「视频批量下载任务列表」段（`.vt-row` 等）。
+
+### 13.4 修改注意
+
+- 新增/调整解析规则改 `resolveSource`，不要在路由里写正则；
+- 下载接口要带 `signal`，否则任务取消不生效；
+- 想提高吞吐调 `DOCBOX_VIDEO_PARALLEL`，但注意站点限速与本机带宽。

@@ -2,7 +2,7 @@
 # DocBox 一键部署（Linux / Podman）
 # 用法：sudo bash install-linux.sh [选项]
 #   --port 3000          宿主机端口
-#   --image-tar PATH     镜像包（默认脚本目录里的 docbox-0.3.0-image.tar）
+#   --image-tar PATH     镜像包（默认脚本目录里的 docbox-0.3.1-image.tar）
 #   --volume NAME        数据卷名（默认 docbox-data）
 #   --data-dir /srv/docbox   改用绑定的数据目录（替代数据卷）
 #   --boot               生成 systemd 用户服务并开机自启（quadlet）
@@ -10,7 +10,7 @@
 set -euo pipefail
 
 PORT=3000
-IMAGE="docbox:0.3.0"
+IMAGE="docbox:0.3.1"
 VOLUME="docbox-data"
 DATA_DIR=""
 IMAGE_TAR=""
@@ -60,8 +60,8 @@ info "podman：$(podman --version)"
 
 # 2) 镜像包
 if [[ -z "$IMAGE_TAR" ]]; then
-  for c in "$SCRIPT_DIR/docbox-0.3.0-image.tar" "$SCRIPT_DIR/docbox-0.3.0-image.tar.gz" \
-           "$ROOT_DIR/docbox-0.3.0-image.tar" "$ROOT_DIR/docbox-0.3.0-image.tar.gz"; do
+  for c in "$SCRIPT_DIR/docbox-0.3.1-image.tar" "$SCRIPT_DIR/docbox-0.3.1-image.tar.gz" \
+           "$ROOT_DIR/docbox-0.3.1-image.tar" "$ROOT_DIR/docbox-0.3.1-image.tar.gz"; do
     if [[ -f "$c" ]]; then IMAGE_TAR="$c"; break; fi
   done
   if [[ -z "$IMAGE_TAR" && -d "$ROOT_DIR/version" ]]; then
