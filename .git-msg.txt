@@ -1,9 +1,0 @@
-feat(stt): whisper-small + Silero VAD + 流式实时转写 (0.1.7)
-
-- 转写模型 tiny -> whisper-small（Xenova/whisper-small，量化 ~250MB，hf-mirror 下载）
-- 新增 Silero VAD（onnx-community/silero-vad）：文件转写先切人声段再识别，VAD 不可用时退化为 12s 窗口
-- VAD 隔离到 vad-runtime/ 独立子进程（onnxruntime-node 1.22），避免与 Whisper 的 ORT 1.14 同进程冲突
-- 实时转写改为 WebSocket PCM 流式（/ws/stt）：partial 边收边出、静音 450ms 定稿 final，串行解码 + 积压保护
-- 实时默认 whisper-base（~2.6s/次）保低延迟，文件/离线用 small（~5.8s/次）保精度
-- 服务端堆内存 1536 -> 8192MB；新增 scripts/fix-sharp.mjs（prestart 自动清理嵌套 sharp）
-- 冒烟 167/167（新增模型/流式断言）
