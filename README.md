@@ -3,9 +3,49 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.1.10` · 88 个可用工具 · SSH/Telnet 网页终端 · SenseVoice + sherpa-onnx 流式识别（WebRTC 采集 · 本地 APM 前处理 · 实时预览不抢编辑） · 全类型文件预览 · 账户角色与模块授权 · 178 项冒烟断言全通过
+`v0.2.0` · 88 个可用工具 · SSH/Telnet 网页终端 · SenseVoice + sherpa-onnx 流式识别（WebRTC 采集 · 本地 APM 前处理 · 实时预览不抢编辑） · 全类型文件预览 · 账户角色与模块授权 · 181 项冒烟断言全通过
 
 ---
+
+## 一键部署（Podman 容器，推荐）
+
+不想装 Node / MySQL / FFmpeg，就用容器：一个镜像自带 Node 22、MariaDB、FFmpeg、中文字体、中文 OCR 与 SenseVoice/zipformer 语音模型，数据全部留在数据卷里。
+
+```powershell
+# Windows：右键「使用 PowerShell 运行」
+powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
+```
+
+```bash
+# Linux：自动装 podman → 载入镜像 → 起容器 → 等健康检查
+sudo bash deploy/install-linux.sh --port 3000
+```
+
+- 镜像包 `docbox-0.2.0-image.tar`（`podman save` 导出，约 1.7GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
+- 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
+- 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
+
+细节、参数与常见问题见 **[deploy/README.md](deploy/README.md)**。
+
+---
+
+## 0.2.0 有什么变化
+
+> 主题：**全工具自检 + 容器化交付。**
+
+### 全工具自检（93/94，含 57 个套件工具 + 33 个原生工具）
+
+- 新增 `npm run tools:check`：自动生成测试夹具（PDF/图片/音视频/Word/Excel/PPTX/Markdown），逐个真实调用 57 个套件工具与 33 个原生接口，下载产物校验大小；
+- **修掉 2 个真实缺陷**：图片轮播（slideshow）输出高度不是偶数导致 libx264 失败；RDAP 查询补 User-Agent 与超时；
+- 2 项失败为外部服务不可用（rdap.org 403、crt.sh 502），代码路径已验证。
+
+### 容器化交付
+
+- 单镜像 `docbox:0.2.0`：Node 22 + MariaDB 10.11 + FFmpeg + 中文字体 + SenseVoice/zipformer/Silero 模型预置；
+- 入口脚本首次启动自动初始化数据库、建库建号，之后直接起应用；
+- `deploy/install-windows.ps1` / `deploy/install-linux.sh` 从 0 安装 podman → `podman load` 本地镜像 → 起容器 → 健康检查 → 打开浏览器；
+- `DOCBOX_DATA_DIR` / `DOCBOX_TMP_DIR` / `DOCBOX_MODELS_DIR` / `DOCBOX_FONT` 环境变量支持，配置无需改代码；
+- 模型目录改为 `models/`（不再被 tmp 清理误删）；无浏览器环境下文档转 PDF 走纯文本兜底渲染。
 
 ## 0.1.10 有什么变化
 
@@ -302,7 +342,7 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 
 ## 验证
 
-- `npm run smoke`：**178/178 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 预览 11 · 音视频 16 · 网络安全 15 · 终端 4 · 转写 26 · 数据库 10 · 其它 29）
+- `npm run smoke`：**181/181 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 预览 11 · 音视频 16 · 网络安全 15 · 终端 4 · 转写 26 · 数据库 10 · 其它 29）
 - 浏览器（Edge/Chromium）实测：首页 88 张卡片、文档 15 项、图片/PDF/Word/Excel/PPT/Markdown/TXT 七类预览、结果 PDF 与 Word 预览、OCR 缩略图、音视频播放器、Markdown 编辑器导出、公文排版、账户权限，均无控制台报错。
 
 ## 版本历史

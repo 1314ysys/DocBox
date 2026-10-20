@@ -283,7 +283,7 @@ async function rdap(f) {
   if (!q) fail('请填写域名或 IP');
   const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(q);
   const url = 'https://rdap.org/' + (isIp ? 'ip/' : 'domain/') + encodeURIComponent(q);
-  const res = await fetch(url, { headers: { accept: 'application/rdap+json' }, signal: AbortSignal.timeout(15000) });
+  const res = await fetch(url, { headers: { accept: 'application/rdap+json', 'user-agent': 'DocBox/0.2.0 (+local)' }, signal: AbortSignal.timeout(20000) });
   if (!res.ok) fail('RDAP 查询失败（HTTP ' + res.status + '），请确认域名拼写或网络');
   const json = await res.json();
   const events = (json.events || []).map((e) => ({ action: e.eventAction, date: e.eventDate }));

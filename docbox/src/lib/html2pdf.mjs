@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { TMP_DIR, EDGE_PROFILE_DIR, findEdge } from '../config.mjs';
+import { htmlTextToPdf } from './htmltext-pdf.mjs';
 
 const DOC_STYLES = `
 @page { size: A4; margin: 18mm 16mm; }
@@ -41,7 +42,8 @@ function serialized(task) {
 export async function htmlToPdf(html) {
   return serialized(async () => {
     const edge = findEdge();
-    if (!edge) throw new Error('未找到 Microsoft Edge / Chrome，无法执行文档打印转 PDF');
+    // 容器 / 服务器上没有浏览器：退回纯文本 PDF 渲染（有中文字体就能出中文）
+    if (!edge) return htmlTextToPdf(html);
     const id = crypto.randomBytes(8).toString('hex');
     const htmlPath = path.join(TMP_DIR, id + '.html');
     const pdfPath = path.join(TMP_DIR, id + '.pdf');

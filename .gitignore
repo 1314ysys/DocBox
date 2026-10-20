@@ -13,6 +13,7 @@ python/*.whl
 docbox/outputs/
 docbox/uploads/
 docbox/tmp/
+docbox/models/
 docbox/.cache/
 docbox/shots/
 docbox/*.log
@@ -23,9 +24,17 @@ docbox/_*.png
 shots/
 *.pem
 
+# 容器构建产物（models 由 docbox/tmp 复制，镜像包太大不进库）
+deploy/models/
+version/**/*.tar
+version/**/*.tar.gz
+
+
 .git-msg.txt
 
 # 系统
 .DS_Store
 Thumbs.db
 *.tmp
+
+tmp/

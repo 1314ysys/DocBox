@@ -1,6 +1,6 @@
 /**
  * Silero VAD（语音活动检测）
- * - 模型：onnx-community/silero-vad（onnx/model.onnx，约 2MB），走 hf-mirror 下载，缓存 tmp/models
+ * - 模型：onnx-community/silero-vad（onnx/model.onnx，约 2MB），走 hf-mirror 下载，缓存 models/
  * - 推理放在独立子进程（vad-runtime/worker.mjs，自带 onnxruntime-node 1.22），
  *   与 whisper 用的 ORT 1.14 完全隔离，避免同进程双版本冲突导致 OOM/崩溃
  * - 对外：detectSpeech(audio) 一次切出人声段；createVadStream() 供实时转写逐帧判断
@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { TMP_DIR, DOCBOX_DIR } from '../config.mjs';
+import { MODELS_DIR, DOCBOX_DIR } from '../config.mjs';
 
 const MIRROR = 'https://hf-mirror.com';
 const MODEL_REPO = 'onnx-community/silero-vad';
@@ -25,7 +25,7 @@ let seq = 0;
 let buffer = '';
 
 function modelPath() {
-  return path.join(TMP_DIR, 'models', 'silero-vad-fp32.onnx');
+  return path.join(MODELS_DIR, 'silero-vad-fp32.onnx');
 }
 
 async function downloadModel(target) {

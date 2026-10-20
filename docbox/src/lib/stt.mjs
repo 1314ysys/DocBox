@@ -1,6 +1,6 @@
 /**
  * 语音转写（Whisper small 多语言，ONNX / transformers.js）
- * - 中英文识别，模型约 250MB（量化），首次使用从 hf-mirror 下载并缓存到 tmp/models
+ * - 中英文识别，模型约 250MB（量化），首次使用从 hf-mirror 下载并缓存到 models/
  * - 解码走内置 ffmpeg（任意音视频 → 16kHz 单声道 Float32）
  * - Silero VAD 先切出人声区间（跳过静音），再逐段识别；VAD 不可用时退化为 12s 窗口
  * - 可上报进度；离线任务进后台队列（MySQL stt_jobs）；流式会话见 stt-stream.mjs
@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { FFMPEG, TMP_DIR } from '../config.mjs';
+import { FFMPEG, MODELS_DIR } from '../config.mjs';
 import { probe } from './media.mjs';
 import { vadState } from './vad.mjs';
 import { senseVoiceRecognize, sherpaStatus } from './asr-sherpa.mjs';
@@ -56,7 +56,7 @@ async function ensurePipeline(model = MODEL) {
   if (!pipes.has(model)) {
     modelState = { phase: 'loading', percent: 0, error: null, model };
     const promise = import('@xenova/transformers').then(async ({ env, pipeline }) => {
-      env.cacheDir = path.join(TMP_DIR, 'models');
+      env.cacheDir = MODELS_DIR;
       env.allowLocalModels = false;
       env.allowRemoteModels = true;
       env.remoteHost = MODEL_MIRROR;

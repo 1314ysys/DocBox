@@ -259,7 +259,7 @@ async function slideshow(files, f) {
   }
   lines.push("file '" + files[files.length - 1].path.replace(/'/g, "'\\''") + "'");
   await fsp.writeFile(list, lines.join('\n'), 'utf8');
-  await exec(FFMPEG, ['-y', '-f', 'concat', '-safe', '0', '-i', list, '-vf', 'scale=' + width + ':-2:force_original_aspect_ratio=decrease,format=yuv420p', '-r', '30', '-c:v', 'libx264', '-crf', '22', out]);
+  await exec(FFMPEG, ['-y', '-f', 'concat', '-safe', '0', '-i', list, '-vf', "scale=w='min(iw," + width + ")':h=-2,format=yuv420p", '-r', '30', '-c:v', 'libx264', '-crf', '22', out]);
   await fsp.rm(list, { force: true });
   return { outputs: [{ ...outMeta('media-slideshow', files[0].name, 'mp4'), path: out }], note: '已生成 ' + files.length + ' 张图片的轮播视频（每张 ' + per + 's）' };
 }

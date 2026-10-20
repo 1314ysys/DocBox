@@ -1,0 +1,44 @@
+{
+  "name": "DocBox",
+  "version": "0.2.0",
+  "channel": "stable",
+  "released": "2026-10-20",
+  "gitTag": "v0.2.0",
+  "summary": "全工具自检 93/94（仅 crt.sh 外部接口 502 失败；修 slideshow、RDAP、模型被 tmp 清理、无浏览器转 PDF、中文水印字体），交付 Podman 单镜像与 Windows/Linux 一键部署脚本。",
+  "counts": {
+    "tools": 88,
+    "catalogEntries": 90,
+    "docTools": 15,
+    "previewKinds": 7,
+    "modules": 9,
+    "dbTables": 8,
+    "suiteTools": 57,
+    "nativeTools": 33
+  },
+  "fixed": [
+    "图片轮播输出高度为奇数导致 libx264 失败",
+    "RDAP 查询缺少 User-Agent 导致 403",
+    "模型被 tmp 清理误删导致每次重启重新下载",
+    "无浏览器环境文档转 PDF 失败（新增纯文本 PDF 兜底）",
+    "PDF 中文水印 WinAnsi 编码错误（改用 TTF 字体）"
+  ],
+  "features": [
+    "Podman 单镜像（Node + MariaDB + FFmpeg + 中文模型）",
+    "Windows/Linux 一键部署脚本（从 0 装 podman）",
+    "tools:check 全工具自检（93/94）",
+    "DOCBOX_DATA_DIR/DOCBOX_FONT 等环境变量"
+  ],
+  "tests": {
+    "smoke": {
+      "total": 181,
+      "passed": 181
+    },
+    "toolsCheck": "93/94（失败项仅 net-subdomain：crt.sh HTTP 502）",
+    "note": "自检脚本会缺夹具时自动生成；tmp 清理不再影响 models/"
+  },
+  "image": {
+    "name": "docbox:0.2.0",
+    "tar": "docbox-0.2.0-image.tar",
+    "note": "podman save 导出，脚本内 podman load"
+  }
+}

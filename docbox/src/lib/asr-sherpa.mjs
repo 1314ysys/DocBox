@@ -5,14 +5,14 @@
  * - whisper-small 单次解码 ~5.8s（30s 窗口 + CPU INT8），7.78s 音频要 20s，做不了实时；
  * - SenseVoiceSmall（阿里，int8）同一段 0.92s（8.5x 实时），自带标点，中英混说更稳；
  * - 流式 Zipformer（int8，中英双语）逐帧出字，0.3s 就有 partial，总耗时 0.88s。
- * 两者都是量化 ONNX + CPU，无 GPU 依赖；模型放 tmp/models/sherpa，走 hf-mirror 下载。
+ * 两者都是量化 ONNX + CPU，无 GPU 依赖；模型放 models/sherpa，走 hf-mirror 下载。
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { TMP_DIR } from '../config.mjs';
+import { MODELS_DIR } from '../config.mjs';
 
 const MIRROR = 'https://hf-mirror.com';
-const ROOT = path.join(TMP_DIR, 'models', 'sherpa');
+const ROOT = path.join(MODELS_DIR, 'sherpa');
 const SENSE = { repo: 'csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17', dir: path.join(ROOT, 'sense-voice'), files: ['model.int8.onnx', 'tokens.txt'] };
 const STREAM = {
   repo: 'csukuangfj/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20',

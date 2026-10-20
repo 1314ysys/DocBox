@@ -9,14 +9,18 @@ const require = createRequire(import.meta.url);
 export const DOCBOX_DIR = path.resolve(__dirname, '..');
 export const ROOT = path.resolve(DOCBOX_DIR, '..');
 export const PUBLIC_DIR = path.join(DOCBOX_DIR, 'public');
-export const UPLOAD_DIR = path.join(DOCBOX_DIR, 'uploads');
-export const OUTPUT_DIR = path.join(DOCBOX_DIR, 'outputs');
-export const TMP_DIR = path.join(DOCBOX_DIR, 'tmp');
-export const CACHE_DIR = path.join(DOCBOX_DIR, '.cache');
+// 容器部署时用 DOCBOX_DATA_DIR 把可写数据放到挂载卷里（模型仍留在镜像内）
+const DATA_DIR = process.env.DOCBOX_DATA_DIR || '';
+export const UPLOAD_DIR = DATA_DIR ? path.join(DATA_DIR, 'uploads') : path.join(DOCBOX_DIR, 'uploads');
+export const OUTPUT_DIR = DATA_DIR ? path.join(DATA_DIR, 'outputs') : path.join(DOCBOX_DIR, 'outputs');
+export const TMP_DIR = process.env.DOCBOX_TMP_DIR ? path.resolve(process.env.DOCBOX_TMP_DIR) : path.join(DOCBOX_DIR, 'tmp');
+// 语音模型单独存，避免被 tmp 清理（cleanupRuntime）误删
+export const MODELS_DIR = process.env.DOCBOX_MODELS_DIR ? path.resolve(process.env.DOCBOX_MODELS_DIR) : path.join(DOCBOX_DIR, 'models');
+export const CACHE_DIR = DATA_DIR ? path.join(DATA_DIR, 'cache') : path.join(DOCBOX_DIR, '.cache');
 
 export const PORT = Number(process.env.DOCBOX_PORT) || 3000;
 export const HOST = process.env.DOCBOX_HOST || '127.0.0.1';
-export const APP_VERSION = '0.1.10';
+export const APP_VERSION = '0.2.0';
 
 // ---------------------------------------------------------------- 本地数据库
 export const DB = {
@@ -30,6 +34,10 @@ export const DB = {
 
 // ---------------------------------------------------------------- 字体 / 浏览器
 export const FONT_CANDIDATES = [
+  process.env.DOCBOX_FONT || '',
+  '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+  '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+  '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
   path.join(ROOT, 'fonts', 'SourceHanSansSC-Regular.otf'),
   path.join(ROOT, 'fonts', 'simhei.ttf'),
   'C:/Windows/Fonts/simhei.ttf',
@@ -45,7 +53,7 @@ export const EDGE_CANDIDATES = [
 
 export const LIMITS = { fileSize: 200 * 1024 * 1024, files: 40 };
 
-for (const dir of [UPLOAD_DIR, OUTPUT_DIR, TMP_DIR, CACHE_DIR]) fs.mkdirSync(dir, { recursive: true });
+for (const dir of [UPLOAD_DIR, OUTPUT_DIR, TMP_DIR, CACHE_DIR, MODELS_DIR]) fs.mkdirSync(dir, { recursive: true });
 
 export function findFont() {
   for (const f of FONT_CANDIDATES) {

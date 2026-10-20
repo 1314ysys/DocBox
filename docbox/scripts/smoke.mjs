@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE = process.argv[2] || 'http://127.0.0.1:3000';
 const DATA = path.resolve(__dirname, '..', 'testdata');
+const ROOT = path.resolve(__dirname, '..', '..');
 
 const results = [];
 let COOKIE = '';
@@ -107,7 +108,7 @@ record('管理员拥有全部模块', (login.payload.user?.modules || []).length
 const me = await getJson('登录态回读', '/api/auth/me');
 record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
 const health = await getJson('健康检查（免登录）', '/api/health');
-record('版本号 0.1.10', health.version === '0.1.10', 0, health.version);
+record('版本号 0.2.0', health.version === '0.2.0', 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
 record('套件 57 + 自研 33 - 重复 2 = 88', app.suiteToolCount === 57 && app.nativeToolCount === 33 && app.toolCount === 88, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');
@@ -309,6 +310,9 @@ const viewJs = await (await fetch(BASE + '/js/views/ocr.mjs')).text();
 const cssText = await (await fetch(BASE + '/styles.css')).text();
 record('实时预览行已加入页面', homeHtml.includes('id="ocrLive"'), 0, 'index.html');
 record('账户页整行布局已生效', cssText.includes('.workspace-accounts'), 0, 'styles.css');
+record('容器镜像定义存在', await fs.access(path.join(ROOT, 'Dockerfile')).then(() => true, () => false), 0, 'Dockerfile');
+record('Windows 一键部署脚本存在', await fs.access(path.join(ROOT, 'deploy', 'install-windows.ps1')).then(() => true, () => false), 0, 'deploy/install-windows.ps1');
+record('Linux 一键部署脚本存在', await fs.access(path.join(ROOT, 'deploy', 'install-linux.sh')).then(() => true, () => false), 0, 'deploy/install-linux.sh');
 record('实时预览行有样式', cssText.includes('.ocr-live'), 0, 'styles.css');
 record('实时渲染不再覆写结果框', viewJs.includes('setLivePartial') && viewJs.includes('appendConfirmed') && !viewJs.includes('ta.value = st.finalText'), 0, 'ocr.mjs');
 const apmTest = await json('APM 处理自测', 'POST', '/api/apm/test');
