@@ -1,6 +1,6 @@
 {
   "name": "docbox",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "本地文档与图像工作台：全类型文件预览、账户角色与模块授权、15 项文档能力、23 项原生 PDF、18 项音视频、16 项网络体检、SSH/Telnet 网页终端、离线 OCR 与 Whisper 语音转写。",
   "main": "server.mjs",
   "type": "module",
@@ -8,10 +8,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node --max-old-space-size=1536 --max-semi-space-size=16 server.mjs",
-    "dev": "node --watch --max-old-space-size=1536 --max-semi-space-size=16 server.mjs",
+    "start": "node --max-old-space-size=8192 --max-semi-space-size=32 server.mjs",
+    "dev": "node --watch --max-old-space-size=8192 --max-semi-space-size=32 server.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "test": "node scripts/smoke.mjs"
+    "test": "node scripts/smoke.mjs",
+    "prestart": "node scripts/fix-sharp.mjs",
+    "predev": "node scripts/fix-sharp.mjs"
   },
   "keywords": [
     "pdf",

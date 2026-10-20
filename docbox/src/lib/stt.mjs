@@ -1,8 +1,9 @@
 /**
- * 语音转写（Whisper tiny 多语言，ONNX / transformers.js）
- * - 中英文识别，模型约 40MB（量化），首次使用从 hf-mirror 下载并缓存到 tmp/models
+ * 语音转写（Whisper small 多语言，ONNX / transformers.js）
+ * - 中英文识别，模型约 250MB（量化），首次使用从 hf-mirror 下载并缓存到 tmp/models
  * - 解码走内置 ffmpeg（任意音视频 → 16kHz 单声道 Float32）
- * - 长音频按 30s 窗口切片，可上报进度；离线任务进后台队列（MySQL stt_jobs）
+ * - Silero VAD 先切出人声区间（跳过静音），再逐段识别；VAD 不可用时退化为 12s 窗口
+ * - 可上报进度；离线任务进后台队列（MySQL stt_jobs）；流式会话见 stt-stream.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,14 +11,16 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { FFMPEG, TMP_DIR } from '../config.mjs';
 import { probe } from './media.mjs';
+import { vadState } from './vad.mjs';
 import { createSttJob, updateSttJob, getSttJob, listSttJobs, deleteSttJob, dbState } from './db.mjs';
 
-const MODEL = 'Xenova/whisper-tiny';
+export const MODEL = process.env.DOCBOX_STT_MODEL || 'Xenova/whisper-small';          // 文件/离线：精度优先
+export const STREAM_MODEL = process.env.DOCBOX_STT_STREAM_MODEL || 'Xenova/whisper-base';  // 实时：延迟优先
 const MODEL_MIRROR = 'https://hf-mirror.com';
 const WINDOW_SEC = 12;   // transformers.js 在多语言 + 时间戳同时开启时返回空文本，改为按窗口切分自带时间
 const MAX_SECONDS = 3 * 60 * 60;
 
-let pipePromise = null;
+const pipes = new Map();   // model -> Promise<pipeline>
 let modelState = { phase: 'idle', percent: 0, error: null };
 
 const memory = new Map();      // 数据库不可用时的降级存储
@@ -31,8 +34,11 @@ function id16() {
 export function sttInfo() {
   return {
     model: MODEL,
+    streamModel: STREAM_MODEL,
+    vad: vadState(),
+    modelsLoaded: [...pipes.keys()],
     mirror: MODEL_MIRROR,
-    ready: Boolean(pipePromise),
+    ready: pipes.has(MODEL),
     phase: modelState.phase,
     percent: modelState.percent,
     error: modelState.error,
@@ -42,17 +48,17 @@ export function sttInfo() {
   };
 }
 
-async function ensurePipeline() {
-  if (!pipePromise) {
-    modelState = { phase: 'loading', percent: 0, error: null };
-    pipePromise = import('@xenova/transformers').then(async ({ env, pipeline }) => {
+async function ensurePipeline(model = MODEL) {
+  if (!pipes.has(model)) {
+    modelState = { phase: 'loading', percent: 0, error: null, model };
+    const promise = import('@xenova/transformers').then(async ({ env, pipeline }) => {
       env.cacheDir = path.join(TMP_DIR, 'models');
       env.allowLocalModels = false;
       env.allowRemoteModels = true;
       env.remoteHost = MODEL_MIRROR;
       env.remotePathTemplate = '{model}/resolve/{revision}/';
       env.useBrowserCache = false;
-      const pipe = await pipeline('automatic-speech-recognition', MODEL, {
+      const pipe = await pipeline('automatic-speech-recognition', model, {
         quantized: true,
         progress_callback: (p) => {
           if (p && p.status === 'progress' && typeof p.progress === 'number') {
@@ -60,15 +66,16 @@ async function ensurePipeline() {
           }
         },
       });
-      modelState = { phase: 'ready', percent: 100, error: null };
+      modelState = { phase: 'ready', percent: 100, error: null, model };
       return pipe;
     }).catch((err) => {
-      pipePromise = null;
-      modelState = { phase: 'error', percent: 0, error: String(err.message || err) };
+      pipes.delete(model);
+      modelState = { phase: 'error', percent: 0, error: String(err.message || err), model };
       throw err;
     });
+    pipes.set(model, promise);
   }
-  return pipePromise;
+  return pipes.get(model);
 }
 
 /** ffmpeg 解码为 16kHz 单声道 Float32 */
@@ -90,6 +97,41 @@ export async function decodeToFloat32(filePath) {
   });
 }
 
+/** 直接对 16kHz 单声道 Float32 音频做一次识别（流式/窗口共用） */
+export async function transcribePcm(audio, { language = 'zh', model = MODEL } = {}) {
+  const pipe = await ensurePipeline(model);
+  const opts = {};
+  if (language && language !== 'auto') opts.language = language;
+  const out = await pipe(audio, opts);
+  return cleanText(out.text);
+}
+
+/** 用 Silero VAD 找出人声区间；VAD 不可用或没检测到时退化为固定窗口 */
+async function speechRanges(audio, durationSec) {
+  let segs = [];
+  try {
+    const { detectSpeech } = await import('./vad.mjs');
+    segs = await detectSpeech(audio, { minSilenceMs: 600, minSpeechMs: 300, paddingMs: 150 });
+  } catch {
+    segs = [];
+  }
+  if (!segs.length) {
+    segs = [];
+    for (let t = 0; t < durationSec; t += WINDOW_SEC) segs.push({ start: t, end: Math.min(durationSec, t + WINDOW_SEC) });
+    return segs;
+  }
+  const out = [];
+  for (const seg of segs) {
+    let start = seg.start;
+    while (start < seg.end - 0.25) {
+      const end = Math.min(seg.end, start + WINDOW_SEC * 2.5);
+      out.push({ start, end });
+      start = end;
+    }
+  }
+  return out;
+}
+
 function cleanText(t) {
   return String(t || '').replace(/\s+/g, ' ').trim();
 }
@@ -99,26 +141,21 @@ function cleanText(t) {
  * @returns {{text:string, segments:Array, durationSec:number, language:string}}
  */
 export async function transcribeFile(filePath, { language = 'zh', onProgress } = {}) {
-  const pipe = await ensurePipeline();
   const audio = await decodeToFloat32(filePath);
   const durationSec = audio.length / 16000;
   if (!durationSec) throw new Error('音频为空或无法解码');
   if (durationSec > MAX_SECONDS) throw new Error('音频过长（超过 3 小时），请先压缩或分割');
 
-  const total = Math.ceil(durationSec / WINDOW_SEC);
+  const ranges = await speechRanges(audio, durationSec);
+  const total = Math.max(1, ranges.length);
   const segments = [];
   let text = '';
-  for (let i = 0; i < total; i++) {
-    const startSample = i * WINDOW_SEC * 16000;
-    const endSample = Math.min(audio.length, (i + 1) * WINDOW_SEC * 16000);
-    const slice = audio.subarray(startSample, endSample);
-    const opts = {};
-    if (language && language !== 'auto') opts.language = language;
-    const out = await pipe(slice, opts);
-    const partText = cleanText(out.text);
+  for (let i = 0; i < ranges.length; i++) {
+    const { start, end } = ranges[i];
+    const slice = audio.subarray(Math.floor(start * 16000), Math.min(audio.length, Math.floor(end * 16000)));
+    const partText = slice.length >= 800 ? await transcribePcm(slice, { language }) : '';
     if (partText) {
-      const start = Number((i * WINDOW_SEC).toFixed(2));
-      segments.push({ start, end: Number((start + slice.length / 16000).toFixed(2)), text: partText });
+      segments.push({ start: Number(start.toFixed(2)), end: Number(end.toFixed(2)), text: partText });
       text += (text ? ' ' : '') + partText;
     }
     if (onProgress) onProgress(Math.round(((i + 1) / total) * 100), partText);

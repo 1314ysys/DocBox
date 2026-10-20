@@ -1,0 +1,9 @@
+{
+  "name": "docbox-vad-runtime",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "dependencies": {
+    "onnxruntime-node": "1.22.0"
+  }
+}

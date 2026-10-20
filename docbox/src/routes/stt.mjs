@@ -3,6 +3,7 @@ import { upload } from '../lib/upload.mjs';
 import { ah } from '../lib/async.mjs';
 import { cleanupUploads } from '../lib/files.mjs';
 import { submitJob, jobStatus, listJobs, removeJob, transcribeFile, sttInfo, audioInfo } from '../lib/stt.mjs';
+import { openStream, endStream, closeStream, streamInfo } from '../lib/stt-stream.mjs';
 
 export const sttRouter = express.Router();
 
@@ -64,3 +65,23 @@ sttRouter.post('/api/stt/chunk', upload.single('file'), ah(async (req, res) => {
     cleanupUploads(req);
   }
 }));
+
+/* ---------------- 实时流式转写 ---------------- */
+sttRouter.post('/api/stt/stream', ah(async (req, res) => {
+  const language = String(req.body?.language || 'zh');
+  const { id } = await openStream({ language });
+  res.json({ ok: true, id, ws: '/ws/stt?id=' + id, sampleRate: 16000 });
+}));
+
+sttRouter.get('/api/stt/streams', (req, res) => res.json({ ok: true, ...streamInfo() }));
+
+sttRouter.post('/api/stt/stream/:id/stop', ah(async (req, res) => {
+  const result = await endStream(req.params.id);
+  if (!result) return res.status(404).json({ error: '实时会话不存在' });
+  res.json({ ok: true, ...result });
+}));
+
+sttRouter.delete('/api/stt/stream/:id', (req, res) => {
+  const closed = closeStream(req.params.id);
+  res.json({ ok: true, closed });
+});

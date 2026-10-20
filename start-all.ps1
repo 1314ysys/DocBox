@@ -49,7 +49,7 @@ if (-not (Test-Path "$Root\docbox\node_modules\express\package.json")) {
 if (Test-Port 3000) {
     Write-Host "[跳过] 3000 已被占用，DocBox 可能已在运行。" -ForegroundColor Yellow
 } else {
-    $p = Start-Process -FilePath 'node' -ArgumentList @('--max-old-space-size=1536', '--max-semi-space-size=16', 'server.mjs') `
+    $p = Start-Process -FilePath 'node' -ArgumentList @('--max-old-space-size=8192', '--max-semi-space-size=32', 'server.mjs') `
         -WorkingDirectory "$Root\docbox" `
         -RedirectStandardOutput "$Root\docbox\server.out.log" `
         -RedirectStandardError "$Root\docbox\server.err.log" `

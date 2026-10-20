@@ -28,6 +28,7 @@ function authHeaders(extra = {}) {
 
 function record(name, ok, ms, note) {
   results.push({ name, ok, ms, note: String(note || '').slice(0, 100) });
+  if (process.env.SMOKE_VERBOSE) console.log((ok ? 'PASS ' : 'FAIL ') + name + ' ' + ms + 'ms ' + String(note || '').slice(0, 60));
   return ok;
 }
 
@@ -106,7 +107,7 @@ record('管理员拥有全部模块', (login.payload.user?.modules || []).length
 const me = await getJson('登录态回读', '/api/auth/me');
 record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
 const health = await getJson('健康检查（免登录）', '/api/health');
-record('版本号 0.1.6', health.version === '0.1.6', 0, health.version);
+record('版本号 0.1.7', health.version === '0.1.7', 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
 record('套件 57 + 自研 33 - 重复 2 = 88', app.suiteToolCount === 57 && app.nativeToolCount === 33 && app.toolCount === 88, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');
@@ -295,16 +296,20 @@ await json('关闭不存在的终端会话', 'POST', '/api/terminal/close', { id
 
 // ---------------- 0.1.6 语音转写 ----------------
 const sttStatus = await getJson('转写状态', '/api/stt/status');
-record('转写模型信息', sttStatus.model === 'Xenova/whisper-tiny', 0, sttStatus.model + ' · ' + (sttStatus.mirror || ''));
+record('转写模型 whisper-small', sttStatus.model === 'Xenova/whisper-small', 0, sttStatus.model + ' · ' + (sttStatus.mirror || ''));
+record('实时模型 whisper-base', sttStatus.streamModel === 'Xenova/whisper-base', 0, String(sttStatus.streamModel));
+record('Silero VAD 已接入', Boolean(sttStatus.vad && String(sttStatus.vad.model || '').includes('silero-vad')), 0, (sttStatus.vad && sttStatus.vad.phase) || 'missing');
 const quick = await post('在线转写（中文）', '/api/stt/quick', { field: 'file', fields: { language: 'zh' }, files: ['speech-zh.wav'] });
 record('在线转写返回文本', String(quick.payload.text || '').length >= 4, 0, String(quick.payload.text || '').slice(0, 24));
 const sttJob = await post('创建离线转写任务', '/api/stt/job', { field: 'file', fields: { language: 'zh' }, files: ['speech-zh.wav'] });
 record('离线任务有 ID', Boolean(sttJob.payload.id), 0, sttJob.payload.id || '');
 let sttState = null;
-for (let i = 0; i < 90; i++) {
+for (let i = 0; i < 120; i++) {
   await new Promise((r) => setTimeout(r, 500));
-  const rr = await fetch(BASE + '/api/stt/job/' + sttJob.payload.id, { headers: authHeaders(), signal: AbortSignal.timeout(20000) });
-  sttState = (await rr.json().catch(() => ({}))).job;
+  try {
+    const rr = await fetch(BASE + '/api/stt/job/' + sttJob.payload.id, { headers: authHeaders(), signal: AbortSignal.timeout(20000) });
+    sttState = (await rr.json().catch(() => ({}))).job;
+  } catch { continue; }   // 轮询期间连接被复用/重置时重试，不影响结果
   if (sttState && (sttState.status === 'done' || sttState.status === 'error')) break;
 }
 record('离线任务完成', sttState?.status === 'done', 0, String(sttState?.text || sttState?.error || '').slice(0, 24));
@@ -312,6 +317,12 @@ const sttList = await getJson('转写任务列表', '/api/stt/jobs');
 record('转写任务入库', (sttList.jobs || []).some((j) => j.id === sttJob.payload.id), 0, String((sttList.jobs || []).length));
 const sttChunk = await post('实时片段转写', '/api/stt/chunk', { field: 'file', fields: { language: 'zh' }, files: ['speech-zh.wav'] });
 record('实时片段返回文本', String(sttChunk.payload.text || '').length >= 4, 0, String(sttChunk.payload.text || '').slice(0, 20));
+const stream = await json('创建流式会话', 'POST', '/api/stt/stream', { language: 'zh' });
+record('流式会话返回 WS 地址', Boolean(stream.payload.id && String(stream.payload.ws || '').startsWith('/ws/stt?id=')), 0, stream.payload.ws || '');
+const streams = await getJson('流式会话列表', '/api/stt/streams');
+record('流式会话计数', (streams.active || 0) >= 1, 0, String(streams.active) + '/' + String(streams.max));
+const closed = await json('关闭流式会话', 'DELETE', '/api/stt/stream/' + stream.payload.id);
+record('流式会话可关闭', closed.payload.closed === true, 0, String(closed.payload.closed));
 await json('删除转写任务', 'DELETE', '/api/stt/job/' + sttJob.payload.id);
 await json('退出登录', 'POST', '/api/auth/logout');
 await post('退出后访问 app 被拒', '/api/app', { expectStatus: 401 });

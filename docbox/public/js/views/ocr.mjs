@@ -12,7 +12,7 @@ const MODE_TEXT = {
   image: { b: '选择或拖入图片（可多张）', s: '识别在本机完成，不联网', run: '开始识别', accept: 'image/*', multiple: true },
   pdf: { b: '选择或拖入 PDF 文件', s: '整本逐页渲染后识别，页数越多越慢', run: '开始识别', accept: 'application/pdf', multiple: false },
   file: { b: '选择或拖入音频 / 视频', s: 'mp3 / wav / m4a / mp4 / mkv… 由 ffmpeg 解码', run: '开始转写', accept: 'audio/*,video/*', multiple: false },
-  live: { b: '点击开始后用麦克风实时转写', s: '每 5 秒切片送本机 Whisper，先说一句再等结果', run: '开始录音', accept: 'audio/*', multiple: false },
+  live: { b: '点击开始后用麦克风实时转写（流式输出）', s: 'Silero VAD 判断说话，Whisper small 边说边出字', run: '开始录音', accept: 'audio/*', multiple: false },
 };
 
 let pv = null;
@@ -20,7 +20,7 @@ let pollTimer = null;
 let lastSegments = [];
 
 export function renderOcr() {
-  st = { mode: 'image', files: [], pdfjs: null, busy: false, jobId: null, segments: [], recorder: null, stream: null, liveQueue: Promise.resolve(), liveBusy: false };
+  st = { mode: 'image', files: [], pdfjs: null, busy: false, jobId: null, segments: [], live: null, finalText: '', partialText: '' };
   lastSegments = [];
   const drop = $('#ocrDrop');
   const input = $('#ocrFile');
@@ -94,6 +94,16 @@ function setMode(mode) {
   $('#ocrModeWrap').hidden = mode === 'live';
   $('#ocrRun').disabled = mode === 'live' ? false : true;
   if (mode === 'live') $('#ocrRun').disabled = false;
+  if (mode === 'file' || mode === 'live') {
+    getJson('/api/stt/status').then((info) => {
+      const file = String(info.model || '').split('/').pop().replace('whisper-', '');
+      const live = String(info.streamModel || '').split('/').pop().replace('whisper-', '');
+      const vad = info.vad && info.vad.phase === 'ready' ? 'Silero VAD' : 'VAD 待加载';
+      $('#ocrHint').textContent = mode === 'live'
+        ? '实时：Whisper ' + live + ' · ' + vad + ' · 流式输出（文件转写用 Whisper ' + file + '）'
+        : '模型：Whisper ' + file + ' · ' + vad + (info.phase === 'ready' ? ' · 已就绪' : ' · 首次使用需下载模型');
+    }).catch(() => {});
+  }
 }
 
 function setFiles(files) {
@@ -273,72 +283,135 @@ function applyResult(text, segments, note) {
   toast(note || '转写完成');
 }
 
-/* ---------------- 实时转写（麦克风） ---------------- */
+/* ---------------- 实时转写（麦克风流式） ---------------- */
 async function toggleLive() {
-  if (st.recorder && st.recorder.state === 'recording') { stopLive(false); return; }
+  if (st.live) { await stopLive(false); return; }
   if (!navigator.mediaDevices?.getUserMedia) { toast('当前浏览器不支持麦克风录音', 'error'); return; }
-  const lang = $('#ocrLang').value;
+  const language = $('#ocrLang').value;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    st.stream = stream;
-    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
-    const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-    st.recorder = recorder;
-    st.liveStart = Date.now();
+    const res = await fetch('/api/stt/stream', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || '无法创建流式会话');
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    let ctx;
+    try { ctx = new Ctx({ sampleRate: 16000 }); } catch { ctx = new Ctx(); }
+    const src = ctx.createMediaStreamSource(stream);
+    const proc = ctx.createScriptProcessor(4096, 1, 1);
+    const mute = ctx.createGain();
+    mute.gain.value = 0;
+
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(proto + '//' + location.host + data.ws);
+    ws.binaryType = 'arraybuffer';
+
+    st.live = { ws, ctx, stream, proc, language, done: false };
+    st.finalText = '';
+    st.partialText = '';
+
+    proc.onaudioprocess = (e) => {
+      if (ws.readyState !== 1) return;
+      const input = e.inputBuffer.getChannelData(0);
+      const pcm = ctx.sampleRate === 16000 ? Float32Array.from(input) : resample(input, ctx.sampleRate, 16000);
+      if (pcm.length) ws.send(pcm.buffer);
+    };
+    src.connect(proc);
+    proc.connect(mute);
+    mute.connect(ctx.destination);
+
+    ws.onmessage = (ev) => handleStreamEvent(JSON.parse(ev.data), language);
+    ws.onerror = () => { $('#ocrHint').textContent = '流式连接出错'; };
+    ws.onclose = () => { if (st.live && !st.live.done) $('#ocrHint').textContent = '流式连接已断开'; };
+
     $('#ocrRun').textContent = '停止录音';
-    $('#ocrHint').textContent = '录音中（每 5 秒转写一次）…';
+    $('#ocrHint').textContent = '已连接（流式），开始说话…';
     $('#ocrProgress').hidden = false;
     $('#ocrText').value = '';
     $('#ocrConf').textContent = '';
-
-    recorder.ondataavailable = (e) => {
-      if (!e.data || e.data.size < 1200) return;
-      st.liveQueue = st.liveQueue.then(() => sendChunk(e.data, lang)).catch(() => {});
-    };
-    recorder.start(5000);
   } catch (err) {
-    toast('无法打开麦克风：' + err.message, 'error', 6000);
+    toast(err.message, 'error', 6000);
+    stopLive(true);
   }
 }
 
-async function sendChunk(blob, lang) {
-  if (st.mode !== 'live') return;
-  st.liveBusy = true;
-  $('#ocrHint').textContent = '识别中…';
+function handleStreamEvent(msg, language) {
+  const ta = $('#ocrText');
+  if (msg.type === 'ready') {
+    $('#ocrHint').textContent = '已连接（' + (msg.language || language) + ' · 流式），开始说话…';
+    return;
+  }
+  if (msg.type === 'vad') {
+    $('#ocrHint').textContent = msg.speaking ? '检测到说话，正在识别…' : '停顿中，等下一句…';
+    return;
+  }
+  if (msg.type === 'partial') {
+    st.partialText = msg.text || '';
+    renderLive();
+    return;
+  }
+  if (msg.type === 'final') {
+    st.finalText = (st.finalText ? st.finalText + ' ' : '') + (msg.text || '');
+    st.partialText = '';
+    st.segments.push({ start: msg.start, end: msg.end, text: msg.text || '' });
+    lastSegments = st.segments;
+    renderLive(true);
+    return;
+  }
+  if (msg.type === 'done') {
+    if (msg.text) st.finalText = msg.text;
+    st.partialText = '';
+    renderLive(true);
+    $('#ocrHint').textContent = '转写结束';
+    return;
+  }
+  if (msg.type === 'warn') {
+    $('#ocrHint').textContent = '提示：' + msg.message;
+  }
+}
+
+function renderLive(isFinal) {
+  const ta = $('#ocrText');
+  ta.value = st.finalText + (st.partialText ? (st.finalText ? '\n' : '') + st.partialText : '');
+  const chars = ta.value.replace(/\s/g, '').length;
+  $('#ocrConf').textContent = '流式输出 · ' + chars + ' 字' + (st.partialText ? ' · 识别中…' : '');
+  $('#ocrCopy').disabled = !ta.value;
+  $('#ocrSave').disabled = !ta.value;
+  $('#ocrSrt').hidden = !st.segments.length;
+  $('#ocrSrt').disabled = !st.segments.length;
+  if (isFinal) ta.scrollTop = ta.scrollHeight;
+}
+
+/** 简单线性重采样（浏览器 AudioContext 不是 16k 时用） */
+function resample(input, fromRate, toRate) {
+  const ratio = fromRate / toRate;
+  const out = new Float32Array(Math.floor(input.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    const pos = i * ratio;
+    const i0 = Math.floor(pos);
+    const i1 = Math.min(input.length - 1, i0 + 1);
+    const frac = pos - i0;
+    out[i] = input[i0] * (1 - frac) + input[i1] * frac;
+  }
+  return out;
+}
+
+async function stopLive(silent) {
+  if (!st || !st.live) return;
+  const live = st.live;
+  live.done = true;
+  try { live.proc?.disconnect(); } catch { /* 忽略 */ }
+  try { live.ctx?.close(); } catch { /* 忽略 */ }
+  try { live.stream?.getTracks().forEach((t) => t.stop()); } catch { /* 忽略 */ }
   try {
-    const fd = new FormData();
-    fd.append('file', blob, 'chunk.webm');
-    fd.append('language', lang);
-    const res = await fetch('/api/stt/chunk', { method: 'POST', body: fd });
-    const data = await res.json().catch(() => ({}));
-    if (data.text) {
-      const ta = $('#ocrText');
-      ta.value = (ta.value ? ta.value.trim() + ' ' : '') + data.text.trim();
-      const secs = Math.round((Date.now() - st.liveStart) / 1000);
-      st.segments.push({ start: secs - 5, end: secs, text: data.text.trim() });
-      lastSegments = st.segments;
-      $('#ocrConf').textContent = '已录 ' + secs + ' 秒 · ' + ta.value.length + ' 字';
-      $('#ocrCopy').disabled = false;
-      $('#ocrSave').disabled = false;
-      $('#ocrSrt').hidden = false;
-      $('#ocrSrt').disabled = false;
-    } else if (data.error) {
-      $('#ocrHint').textContent = '片段识别失败：' + data.error;
+    if (live.ws.readyState === 1) {
+      live.ws.send(JSON.stringify({ type: 'stop' }));
+      setTimeout(() => { try { live.ws.close(); } catch { /* 忽略 */ } }, 1200);
     }
-  } catch {
-    /* 片段失败不打断录音 */
-  } finally {
-    st.liveBusy = false;
-    if (st.recorder && st.recorder.state === 'recording') $('#ocrHint').textContent = '录音中（每 5 秒转写一次）…';
-  }
-}
-
-function stopLive(silent) {
-  if (!st) return;
-  try { st.recorder?.state === 'recording' && st.recorder.stop(); } catch { /* 忽略 */ }
-  try { st.stream?.getTracks().forEach((t) => t.stop()); } catch { /* 忽略 */ }
-  st.recorder = null;
-  st.stream = null;
+  } catch { /* 忽略 */ }
+  st.live = null;
   $('#ocrRun').textContent = MODE_TEXT.live.run;
   $('#ocrProgress').hidden = true;
   if (!silent) {
