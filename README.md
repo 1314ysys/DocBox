@@ -3,9 +3,51 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.1.7` · 88 个可用工具 · SSH/Telnet 网页终端 · Whisper small + Silero VAD 语音转写（流式实时） · 全类型文件预览 · 账户角色与模块授权 · 167 项冒烟断言全通过
+`v0.1.8` · 88 个可用工具 · SSH/Telnet 网页终端 · SenseVoice + sherpa-onnx 流式识别（WebRTC 采集 · 本地 APM 前处理） · 全类型文件预览 · 账户角色与模块授权 · 174 项冒烟断言全通过
 
 ---
+
+## 0.1.8 有什么变化
+
+> 主题：**把"能听清"变成"又快又准"——换掉 whisper，接上 WebRTC 和本地音频前处理。**
+
+### 1. 识别引擎换成 sherpa-onnx（离线 SenseVoice + 流式 Zipformer）
+
+| 同一段 7.78s 中文（speech-zh.wav） | 用时 | 实时倍率 | 输出 |
+| --- | --- | --- | --- |
+| whisper-small（0.1.7 文件） | ~17.4s（含两段解码） | 0.45× | 你好,這是語音轉寫功能的測試。 Dockbox 支持中文和 English 識別 |
+| whisper-base（0.1.7 实时） | ~2.6s/次 | 3× | 你好,这是语音转写功能的测试.box.se |
+| **SenseVoiceSmall int8（0.1.8 文件）** | **0.92s** | **8.5×** | 你好，这是语音转写功能的测试。dog box支持中文和english识别。 |
+| **流式 Zipformer int8（0.1.8 实时）** | **0.88s 全程** | **8.8×** | 逐帧出字：你好 → 你好这是 → ... → 你好这是语音转写功能的测试中文和识别 |
+
+- 离线：`SenseVoiceSmall`（阿里 FunAudioLLM，int8 约 230MB）——非自回归，自带标点，中英混说稳，VAD 切段后逐段识别；
+- 实时：`sherpa-onnx-streaming-zipformer-bilingual-zh-en`（int8 约 100MB）——真正的流式编码，每 0.2s 推进一次 partial，静音 450ms 定稿；
+- 模型走 hf-mirror 下载到 `tmp/models/sherpa/`，首次自动拉取；whisper 仍保留为兜底（`DOCBOX_STT_BACKEND=whisper`、`DOCBOX_STT_STREAM_ENGINE=whisper`）。
+
+### 2. faster-whisper / Qwen 评估（为什么没选）
+
+- **faster-whisper**（CTranslate2）：CPU int8 比 transformers.js 快 3~4 倍，但仍是自回归解码，7.78s 音频约 4~6s，且需要常驻 Python + CTranslate2（~100MB）。与 SenseVoice 对比不占优，暂不进主链路。
+- **Qwen ASR**：开源权重以 LLM 解码为主（更大、更慢），CPU 上单句数秒起步，本机无 GPU 不适合实时；官方 API 版需要联网，与"数据不出本机"冲突。
+- **SenseVoice**：国产、非自回归、int8 量化、CPU 8.5× 实时，于是选定。
+
+### 3. 本地 WebRTC 采集（`@roamhq/wrtc`）
+
+- `src/lib/webrtc.mjs`：服务端 `RTCPeerConnection` 应答浏览器 offer，`RTCAudioSink` 直接取 PCM（浏览器已协商 16kHz 单声道），线性重采样后复用 `stt-stream`；
+- 信令复用 `/ws/stt`：`{type:'offer', sdp}` → `{type:'answer', sdp}`，ICE 只收集回环候选，无需 STUN/TURN；
+- 前端实时页新增「传输」下拉：`WebSocket PCM`（默认，兼容性最好）/ `WebRTC（本地回环）`（Opus、抗丢包、自带 jitter buffer）。
+
+### 4. 本地音频前处理（Python 侧车 + webrtc-audio-processing）
+
+- `python/apm_service.py`：stdin/stdout 二进制协议（10ms 帧），优先 `webrtc_audio_processing`（AEC/NS/AGC）；
+- 该包在 Windows 上**只有源码**（无 wheel，需要 MSVC + meson；本机 VS 2022 未装 C++ 工具链），所以默认走**等价 numpy DSP 链路**：去直流 → 80Hz 高通 → 谱减降噪 → AGC 软限幅，`/api/apm/status` 会如实报告 `backend`；
+- 前端实时页新增「前处理」下拉，选中后 `POST /api/stt/stream {apm:true}` 打开；侧车失败会自动降级并提示，不阻塞转写；
+- 新增接口：`GET /api/apm/status`（APM + WebRTC 可用性）、`POST /api/apm/test`（3200 采样回环自测）。
+
+### 5. 其它
+
+- `npm install` 后新增两个原生依赖：`sherpa-onnx-node`（win-x64 预编译）、`@roamhq/wrtc`（win-x64 预编译），均无需编译器；
+- Python 侧车环境：`python -m venv python/.venv` + `numpy`（`python/requirements.txt`），仅前处理用；不装也能用，只是「本地降噪」不可选；
+- 实时提示文案改为显示真实引擎（sherpa Zipformer / SenseVoice）。
 
 ## 0.1.7 有什么变化
 
@@ -99,6 +141,8 @@ cd docbox
 npm install --ignore-scripts   # 首次
 cd vad-runtime && npm install && cd ..   # Silero VAD 独立运行时（约 40MB native）
 cd ..
+python -m venv python\.venv               # 可选：本地音频前处理（numpy 降噪/AGC）
+python\.venv\Scripts\python -m pip install -r python\requirements.txt
 .\start-all.ps1      # 启动（会顺带拉起 MySQL 服务并打开浏览器）
 ```
 
@@ -175,7 +219,7 @@ npm run smoke        # 167 项冒烟检查（需服务已启动）
 | PDF（原生套件） | 21 | 旋转 / 删页 / 重排 / 裁剪 / 缩放 / 多页合一 / 小册子 / 叠加 / 长页 / 解压 / 扁平化 / 去空白 / 加密(AES-256) / 解密 / 清理 / 元数据读写 / PDF→图片 / PDF→文字 / 图片提取 / 图片转 PDF / 书签 |
 | 文档 | 15 | Word / Excel / PPT / Markdown / 文本 → PDF，HTML ⇄ Word，Word → TXT / HTML / MD，Markdown → HTML，批量转换，公文排版，Markdown 编辑器，表格生成器 |
 | 表格 | 2 | Excel ⇄ CSV ⇄ JSON、多工作表拆分 |
-| OCR 与转写 | 2 | 图片 + 整本 PDF 的离线中文 OCR（tesseract.js v7 + chi_sim）；音视频 Whisper small 转写（Silero VAD 分段，离线后台任务 / 在线同步）+ 麦克风 Whisper base 流式实时转写 + SRT 导出 |
+| OCR 与转写 | 2 | 图片 + 整本 PDF 的离线中文 OCR（tesseract.js v7 + chi_sim）；音视频 SenseVoice 转写（Silero VAD 分段，离线后台任务 / 在线同步）+ 麦克风 Zipformer 流式实时转写（WebRTC / WS PCM，可选本地 APM 降噪）+ SRT 导出 |
 | 账户管理 | 1 | 创建账户、角色（管理员/普通用户）、按模块授权、启停用、重置密码 |
 | 音视频 | 18 | 转码、压缩、提取音轨、音频转码、截取、合并、GIF、抽帧、缩放、变速、响度、静音、旋转、水印、图片轮播、淡入淡出、探明信息、清元数据 |
 | 网络安全 | 17 | 端口扫描（64 并发/顶 1000 端口）、DNS、ping、traceroute、响应头评级、TLS 证书、RDAP、跳转链、耗时、目录探测、方法探测、服务指纹、本机网络、子域枚举、安全配置生成、IP 归属、SSH/Telnet 网页终端 |
@@ -210,7 +254,7 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 
 ## 验证
 
-- `npm run smoke`：**167/167 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 预览 11 · 音视频 16 · 网络安全 15 · 终端 4 · 转写 16 · 数据库 10 · 其它 29）
+- `npm run smoke`：**174/174 通过**（登录/权限 16 · 图片/证件照 5 · PDF 基础 7 · PDF 套件 22 · 文档 16 · 预览 11 · 音视频 16 · 网络安全 15 · 终端 4 · 转写 23 · 数据库 10 · 其它 29）
 - 浏览器（Edge/Chromium）实测：首页 88 张卡片、文档 15 项、图片/PDF/Word/Excel/PPT/Markdown/TXT 七类预览、结果 PDF 与 Word 预览、OCR 缩略图、音视频播放器、Markdown 编辑器导出、公文排版、账户权限，均无控制台报错。
 
 ## 版本历史

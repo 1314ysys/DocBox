@@ -5,6 +5,10 @@ node_modules/
 # 本地字体（缺失时回退系统 simhei）
 fonts/
 
+# Python 侧车虚拟环境
+python/.venv/
+python/*.whl
+
 # 运行时产物
 docbox/outputs/
 docbox/uploads/
@@ -16,6 +20,8 @@ docbox/*.pid
 docbox/_*.mjs
 docbox/_*.pdf
 docbox/_*.png
+shots/
+*.pem
 
 # 系统
 .DS_Store

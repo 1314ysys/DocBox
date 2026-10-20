@@ -4,6 +4,8 @@ import { ah } from '../lib/async.mjs';
 import { cleanupUploads } from '../lib/files.mjs';
 import { submitJob, jobStatus, listJobs, removeJob, transcribeFile, sttInfo, audioInfo } from '../lib/stt.mjs';
 import { openStream, endStream, closeStream, streamInfo } from '../lib/stt-stream.mjs';
+import { apmStatus, processAudio } from '../lib/apm.mjs';
+import { webrtcStatus } from '../lib/webrtc.mjs';
 
 export const sttRouter = express.Router();
 
@@ -69,7 +71,8 @@ sttRouter.post('/api/stt/chunk', upload.single('file'), ah(async (req, res) => {
 /* ---------------- 实时流式转写 ---------------- */
 sttRouter.post('/api/stt/stream', ah(async (req, res) => {
   const language = String(req.body?.language || 'zh');
-  const { id } = await openStream({ language });
+  const apm = Boolean(req.body?.apm);
+  const { id } = await openStream({ language, apm });
   res.json({ ok: true, id, ws: '/ws/stt?id=' + id, sampleRate: 16000 });
 }));
 
@@ -85,3 +88,16 @@ sttRouter.delete('/api/stt/stream/:id', (req, res) => {
   const closed = closeStream(req.params.id);
   res.json({ ok: true, closed });
 });
+
+/* ---------------- 本地音频前处理 / WebRTC ---------------- */
+sttRouter.get('/api/apm/status', (req, res) => {
+  res.json({ ok: true, apm: apmStatus(), webrtc: webrtcStatus() });
+});
+
+sttRouter.post('/api/apm/test', ah(async (req, res) => {
+  const n = 3200;
+  const tone = new Float32Array(n);
+  for (let i = 0; i < n; i++) tone[i] = 0.2 * Math.sin((2 * Math.PI * 440 * i) / 16000) + (Math.random() - 0.5) * 0.05;
+  const out = await processAudio(tone);
+  res.json({ ok: true, inLen: n, outLen: out.length, backend: apmStatus().backend || null });
+}));

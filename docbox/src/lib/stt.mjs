@@ -12,10 +12,12 @@ import { spawn } from 'node:child_process';
 import { FFMPEG, TMP_DIR } from '../config.mjs';
 import { probe } from './media.mjs';
 import { vadState } from './vad.mjs';
+import { senseVoiceRecognize, sherpaStatus } from './asr-sherpa.mjs';
 import { createSttJob, updateSttJob, getSttJob, listSttJobs, deleteSttJob, dbState } from './db.mjs';
 
 export const MODEL = process.env.DOCBOX_STT_MODEL || 'Xenova/whisper-small';          // 文件/离线：精度优先
-export const STREAM_MODEL = process.env.DOCBOX_STT_STREAM_MODEL || 'Xenova/whisper-base';  // 实时：延迟优先
+export const STREAM_MODEL = process.env.DOCBOX_STT_STREAM_MODEL || 'Xenova/whisper-base';  // 实时兜底（引擎=whisper 时）
+export const BACKEND = (process.env.DOCBOX_STT_BACKEND || 'sensevoice').toLowerCase();  // sensevoice | whisper
 const MODEL_MIRROR = 'https://hf-mirror.com';
 const WINDOW_SEC = 12;   // transformers.js 在多语言 + 时间戳同时开启时返回空文本，改为按窗口切分自带时间
 const MAX_SECONDS = 3 * 60 * 60;
@@ -35,6 +37,8 @@ export function sttInfo() {
   return {
     model: MODEL,
     streamModel: STREAM_MODEL,
+    backend: BACKEND,
+    sherpa: sherpaStatus(),
     vad: vadState(),
     modelsLoaded: [...pipes.keys()],
     mirror: MODEL_MIRROR,
@@ -153,7 +157,19 @@ export async function transcribeFile(filePath, { language = 'zh', onProgress } =
   for (let i = 0; i < ranges.length; i++) {
     const { start, end } = ranges[i];
     const slice = audio.subarray(Math.floor(start * 16000), Math.min(audio.length, Math.floor(end * 16000)));
-    const partText = slice.length >= 800 ? await transcribePcm(slice, { language }) : '';
+    let partText = '';
+    if (slice.length >= 800) {
+      if (BACKEND === 'whisper') {
+        partText = await transcribePcm(slice, { language });
+      } else {
+        try {
+          partText = await senseVoiceRecognize(slice, { language });
+        } catch (err) {
+          // SenseVoice 不可用（模型缺失 / 加载失败）时退回 whisper
+          partText = await transcribePcm(slice, { language });
+        }
+      }
+    }
     if (partText) {
       segments.push({ start: Number(start.toFixed(2)), end: Number(end.toFixed(2)), text: partText });
       text += (text ? ' ' : '') + partText;

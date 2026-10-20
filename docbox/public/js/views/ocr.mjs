@@ -94,14 +94,16 @@ function setMode(mode) {
   $('#ocrModeWrap').hidden = mode === 'live';
   $('#ocrRun').disabled = mode === 'live' ? false : true;
   if (mode === 'live') $('#ocrRun').disabled = false;
+  if ($('#ocrTransportWrap')) $('#ocrTransportWrap').hidden = mode !== 'live';
+  if ($('#ocrApmWrap')) $('#ocrApmWrap').hidden = mode !== 'live';
   if (mode === 'file' || mode === 'live') {
     getJson('/api/stt/status').then((info) => {
-      const file = String(info.model || '').split('/').pop().replace('whisper-', '');
-      const live = String(info.streamModel || '').split('/').pop().replace('whisper-', '');
+      const sherpa = info.sherpa || {};
       const vad = info.vad && info.vad.phase === 'ready' ? 'Silero VAD' : 'VAD 待加载';
+      const engine = info.backend === 'sensevoice' ? 'SenseVoice' : 'Whisper small';
       $('#ocrHint').textContent = mode === 'live'
-        ? '实时：Whisper ' + live + ' · ' + vad + ' · 流式输出（文件转写用 Whisper ' + file + '）'
-        : '模型：Whisper ' + file + ' · ' + vad + (info.phase === 'ready' ? ' · 已就绪' : ' · 首次使用需下载模型');
+        ? '流式识别：sherpa-onnx Zipformer（中英）· ' + vad + ' · 每 0.2s 出字'
+        : '识别模型：' + engine + ' · ' + vad + (sherpa.phase === 'ready' ? ' · 已就绪' : ' · 首次使用需下载模型（~230MB）');
     }).catch(() => {});
   }
 }
@@ -289,8 +291,10 @@ async function toggleLive() {
   if (!navigator.mediaDevices?.getUserMedia) { toast('当前浏览器不支持麦克风录音', 'error'); return; }
   const language = $('#ocrLang').value;
   try {
+    const apmOn = ($('#ocrApmMode') && $('#ocrApmMode').value === 'on');
+    const transport = ($('#ocrTransport') && $('#ocrTransport').value) || 'pcm';
     const res = await fetch('/api/stt/stream', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language }),
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language, apm: apmOn }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) throw new Error(data.error || '无法创建流式会话');
@@ -299,6 +303,7 @@ async function toggleLive() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     let ctx;
     try { ctx = new Ctx({ sampleRate: 16000 }); } catch { ctx = new Ctx(); }
+    if (ctx.state === 'suspended') await ctx.resume();
     const src = ctx.createMediaStreamSource(stream);
     const proc = ctx.createScriptProcessor(4096, 1, 1);
     const mute = ctx.createGain();
@@ -312,17 +317,47 @@ async function toggleLive() {
     st.finalText = '';
     st.partialText = '';
 
-    proc.onaudioprocess = (e) => {
-      if (ws.readyState !== 1) return;
-      const input = e.inputBuffer.getChannelData(0);
-      const pcm = ctx.sampleRate === 16000 ? Float32Array.from(input) : resample(input, ctx.sampleRate, 16000);
-      if (pcm.length) ws.send(pcm.buffer);
-    };
-    src.connect(proc);
-    proc.connect(mute);
-    mute.connect(ctx.destination);
-
-    ws.onmessage = (ev) => handleStreamEvent(JSON.parse(ev.data), language);
+    let pc = null;
+    if (transport === 'rtc') {
+      pc = new RTCPeerConnection({ iceServers: [] });
+      for (const track of stream.getAudioTracks()) pc.addTrack(track, stream);
+      ws.onmessage = async (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'answer' && pc) {
+          try { await pc.setRemoteDescription({ type: 'answer', sdp: msg.sdp }); } catch (err) { toast('WebRTC 应答失败：' + err.message, 'error'); }
+          return;
+        }
+        handleStreamEvent(msg, language);
+      };
+      const startRtc = async () => {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        // 非 trickle：等候选收集完再发，否则对端拿不到回环候选
+        await new Promise((resolve) => {
+          if (pc.iceGatheringState === 'complete') return resolve();
+          const done = () => { pc.removeEventListener('icegatheringstatechange', check); resolve(); };
+          const check = () => { if (pc.iceGatheringState === 'complete') done(); };
+          pc.addEventListener('icegatheringstatechange', check);
+          setTimeout(done, 2500);
+        });
+        ws.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription.sdp }));
+        $('#ocrHint').textContent = 'WebRTC 协商中…';
+      };
+      if (ws.readyState === 1) await startRtc();
+      else await new Promise((r) => ws.addEventListener('open', r, { once: true })).then(startRtc);
+      st.live.pc = pc;
+    } else {
+      proc.onaudioprocess = (e) => {
+        if (ws.readyState !== 1) return;
+        const input = e.inputBuffer.getChannelData(0);
+        const pcm = ctx.sampleRate === 16000 ? Float32Array.from(input) : resample(input, ctx.sampleRate, 16000);
+        if (pcm.length) ws.send(pcm.buffer);
+      };
+      src.connect(proc);
+      proc.connect(mute);
+      mute.connect(ctx.destination);
+      ws.onmessage = (ev) => handleStreamEvent(JSON.parse(ev.data), language);
+    }
     ws.onerror = () => { $('#ocrHint').textContent = '流式连接出错'; };
     ws.onclose = () => { if (st.live && !st.live.done) $('#ocrHint').textContent = '流式连接已断开'; };
 
@@ -341,6 +376,10 @@ function handleStreamEvent(msg, language) {
   const ta = $('#ocrText');
   if (msg.type === 'ready') {
     $('#ocrHint').textContent = '已连接（' + (msg.language || language) + ' · 流式），开始说话…';
+    return;
+  }
+  if (msg.type === 'rtc') {
+    $('#ocrHint').textContent = msg.state === 'track' ? 'WebRTC 音频轨道已接入' : ('WebRTC：' + msg.state);
     return;
   }
   if (msg.type === 'vad') {
@@ -404,6 +443,7 @@ async function stopLive(silent) {
   live.done = true;
   try { live.proc?.disconnect(); } catch { /* 忽略 */ }
   try { live.ctx?.close(); } catch { /* 忽略 */ }
+  try { live.pc?.close(); } catch { /* 忽略 */ }
   try { live.stream?.getTracks().forEach((t) => t.stop()); } catch { /* 忽略 */ }
   try {
     if (live.ws.readyState === 1) {

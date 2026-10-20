@@ -1,0 +1,6 @@
+# DocBox 音频前处理依赖（可选）
+# Windows 上 webrtc-audio-processing 只有源码包，需要 MSVC + meson 编译；
+# 装不上时服务自动退回 numpy DSP 链路（功能等价：高通 + 谱减降噪 + AGC）。
+numpy>=1.24
+# 可选：编译成功则启用真正的 WebRTC APM（NS/AGC/AEC）
+# webrtc-audio-processing==0.1.3

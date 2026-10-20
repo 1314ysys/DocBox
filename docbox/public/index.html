@@ -335,6 +335,12 @@
               <label id="ocrModeWrap">方式
                 <select id="ocrSttMode"><option value="offline">离线（后台任务，可离开页面）</option><option value="online">在线（同步返回，≤15 分钟）</option></select>
               </label>
+              <label id="ocrTransportWrap" hidden>传输
+                <select id="ocrTransport"><option value="pcm">WebSocket PCM（默认）</option><option value="rtc">WebRTC（本地回环）</option></select>
+              </label>
+              <label id="ocrApmWrap" hidden>前处理
+                <select id="ocrApmMode"><option value="off">不处理</option><option value="on">本地降噪（APM 侧车）</option></select>
+              </label>
             </div>
             <div class="run-bar">
               <button class="btn btn-primary" id="ocrRun" disabled>开始识别</button>

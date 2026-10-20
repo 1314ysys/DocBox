@@ -6,12 +6,16 @@
 import crypto from 'node:crypto';
 import { createVadStream, FRAME_SAMPLES, SAMPLE_RATE_HZ } from './vad.mjs';
 import { transcribePcm, STREAM_MODEL } from './stt.mjs';
+import { createSherpaStream } from './asr-sherpa.mjs';
+import { processAudio } from './apm.mjs';
 
 const MAX_STREAMS = 4;
 const PREROLL = 0.24;
 const MAX_UTTERANCE = 20;
 const PARTIAL_EVERY = 1.8;   // whisper-small 单次解码约 1.5-2s，中间结果太密只会排队
 const MAX_BUFFER_SEC = 90;
+const ENGINE = (process.env.DOCBOX_STT_STREAM_ENGINE || 'sherpa').toLowerCase();  // sherpa | whisper
+const PARTIAL_MS = 180;
 
 const streams = new Map();
 
@@ -47,7 +51,7 @@ function trim(session, keepFromSec) {
   session.frameIdx = Math.max(0, session.frameIdx - dropSamples);
 }
 
-async function decode(session, fromSec, toSec) {
+async function decodeWhisper(session, fromSec, toSec) {
   const slice = sliceByTime(session, fromSec, toSec);
   if (!slice || slice.length < 1600) return '';
   return transcribePcm(slice, { language: session.language, model: STREAM_MODEL });
@@ -56,11 +60,11 @@ async function decode(session, fromSec, toSec) {
 async function partial(session) {
   if (session.busy) return;
   const to = session.bufStartSec + session.buf.length / SAMPLE_RATE_HZ;
-  if (to - session.speechStart < 0.6) return;
+  if (to - session.speechStart < 0.4) return;
   session.busy = true;
   session.lastDecodeAt = to;
   try {
-    const text = await decode(session, session.speechStart, to);
+    const text = session.asr ? session.asr.text : await decodeWhisper(session, session.speechStart, to);
     if (text) emit(session, { type: 'partial', text, start: Number(session.speechStart.toFixed(2)), end: Number(to.toFixed(2)) });
   } catch (err) {
     emit(session, { type: 'warn', message: String(err.message || err) });
@@ -75,7 +79,7 @@ async function finalize(session, { force = false } = {}) {
   const from = session.speechStart;
   session.busy = true;
   try {
-    const text = await decode(session, from, end);
+    const text = session.asr ? session.asr.text.trim() : await decodeWhisper(session, from, end);
     if (text) {
       const seg = { start: Number(from.toFixed(2)), end: Number(end.toFixed(2)), text };
       session.segments.push(seg);
@@ -88,6 +92,7 @@ async function finalize(session, { force = false } = {}) {
     session.busy = false;
     session.speechStart = -1;
     session.lastDecodeAt = end;
+    if (session.asr) session.asr.reset();
     trim(session, end - PREROLL);
   }
 }
@@ -103,9 +108,30 @@ export function pushStream(id, chunk) {
 }
 
 async function processChunk(session, chunk) {
-  const pcm = chunk instanceof Float32Array ? chunk : new Float32Array(chunk.buffer || chunk, chunk.byteOffset || 0, Math.floor((chunk.byteLength || chunk.length) / 4));
+  let pcm = chunk instanceof Float32Array ? chunk : new Float32Array(chunk.buffer || chunk, chunk.byteOffset || 0, Math.floor((chunk.byteLength || chunk.length) / 4));
   if (!pcm.length) return;
+  if (session.apm && !session.apmBroken) {
+    try {
+      pcm = await processAudio(pcm);
+    } catch (err) {
+      session.apmBroken = true;
+      emit(session, { type: 'warn', message: '本地降噪不可用，已自动关闭：' + String(err.message || err) });
+    }
+  }
   append(session, pcm);
+  if (session.asr) {
+    try {
+      const changed = session.asr.accept(pcm);
+      const now = Date.now();
+      if (changed && session.speechStart >= 0 && now - session.lastPartialAt >= PARTIAL_MS) {
+        session.lastPartialAt = now;
+        const text = session.asr.text;
+        if (text) emit(session, { type: 'partial', text: session.text ? session.text + ' ' + text : text, start: Number(session.speechStart.toFixed(2)), end: Number((session.bufStartSec + session.buf.length / SAMPLE_RATE_HZ).toFixed(2)) });
+      }
+    } catch (err) {
+      emit(session, { type: 'warn', message: String(err.message || err) });
+    }
+  }
   const endSec = session.bufStartSec + session.buf.length / SAMPLE_RATE_HZ;
   if (endSec - session.bufStartSec > MAX_BUFFER_SEC && session.speechStart >= 0) await finalize(session, { force: true });
 
@@ -129,7 +155,7 @@ async function processChunk(session, chunk) {
     }
     if (session.speechStart >= 0) {
       if (frameStart - session.speechStart > MAX_UTTERANCE) await finalize(session, { force: true });
-      else if (frameStart - session.lastDecodeAt >= PARTIAL_EVERY) {
+      else if (!session.asr && frameStart - session.lastDecodeAt >= PARTIAL_EVERY) {
         const backlogSec = (session.buf.length - session.frameIdx) / SAMPLE_RATE_HZ;
         if (backlogSec < 0.8) await partial(session);
       }
@@ -137,12 +163,18 @@ async function processChunk(session, chunk) {
   }
 }
 
-export async function openStream({ language = 'zh' } = {}) {
+export async function openStream({ language = 'zh', apm = false } = {}) {
   if (streams.size >= MAX_STREAMS) throw new Error('已达最大实时转写会话数（' + MAX_STREAMS + '），请先关闭其它会话');
   const id = crypto.randomBytes(8).toString('hex');
+  let asr = null;
+  if (ENGINE === 'sherpa') {
+    try { asr = await createSherpaStream(); }
+    catch (err) { asr = null; }
+  }
   const session = {
-    id, language, send: null, closed: false,
+    id, language, send: null, closed: false, asr, lastPartialAt: 0,
     vad: await createVadStream({ threshold: 0.5, minSilenceMs: 450 }),
+    apm: Boolean(apm), apmBroken: false,
     buf: new Float32Array(0), bufStartSec: 0, frameIdx: 0,
     speechStart: -1, lastVoiceEnd: 0, lastDecodeAt: 0,
     busy: false, text: '', segments: [], createdAt: Date.now(),
