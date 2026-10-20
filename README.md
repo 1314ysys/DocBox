@@ -25,7 +25,7 @@ sudo bash deploy/install-linux.sh --port 3000
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
 - 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
 
-细节、参数与常见问题见 **[deploy/README.md](deploy/README.md)**。
+细节、参数与常见问题见 **[deploy/README.md](deploy/README.md)**；  接手/二次开发/发版流程见 **[docs/HANDOVER.md](docs/HANDOVER.md)**（部署 · 改功能 · 发版 · 注意事项 · 故障排查）。
 
 ---
 
