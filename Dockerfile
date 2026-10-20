@@ -20,15 +20,16 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # 系统依赖：FFmpeg、中文字体、Python（APM 降噪）、MariaDB、tini
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg fonts-wqy-zenhei fontconfig \
-      python3 python3-numpy python-is-python3 \
+      python3 python3-numpy python3-fonttools python-is-python3 \
       mariadb-server mariadb-client \
       ca-certificates curl tini tzdata xz-utils \
     && fc-cache -f >/dev/null 2>&1 \
     && rm -rf /var/lib/apt/lists/*
 
-# 中文字体（simhei.ttf，随构建上下文一起提供；pdf-lib 需要 TTF 而非 TTC）
-COPY fonts/simhei.ttf /usr/share/fonts/truetype/docbox/DocBoxCJK.ttf
-RUN fc-cache -f >/dev/null 2>&1
+# pdf-lib 不能直接嵌入 TTC 字体集合：构建期从文泉驿 TTC 抽出 TTF
+RUN mkdir -p /usr/share/fonts/truetype/docbox \
+    && (python3 -c "from fontTools.ttLib import TTCollection; c=TTCollection('/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc'); c.fonts[0].save('/usr/share/fonts/truetype/docbox/DocBoxCJK.ttf')" || true) \
+    && fc-cache -f >/dev/null 2>&1
 
 ENV DOCBOX_FONT=/usr/share/fonts/truetype/docbox/DocBoxCJK.ttf
 
