@@ -7,6 +7,7 @@
 #   --data-dir /srv/docbox   改用绑定的数据目录（替代数据卷）
 #   --boot               生成 systemd 用户服务并开机自启（quadlet）
 #   --no-browser         不尝试打开浏览器
+#   --skip-load          镜像已在本机（自己构建过），跳过载入镜像包
 set -euo pipefail
 
 PORT=3000
@@ -32,6 +33,7 @@ while [[ $# -gt 0 ]]; do
     --data-dir) DATA_DIR="$2"; shift 2 ;;
     --boot) BOOT=1; shift ;;
     --no-browser) OPEN_BROWSER=0; shift ;;
+--skip-load) SKIP_LOAD=1; shift ;;
     -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) fail "未知参数：$1" ;;
   esac
@@ -68,9 +70,16 @@ if [[ -z "$IMAGE_TAR" ]]; then
     IMAGE_TAR="$(find "$ROOT_DIR/version" -name 'docbox-*-image.tar*' 2>/dev/null | sort | tail -1 || true)"
   fi
 fi
-[[ -n "$IMAGE_TAR" && -f "$IMAGE_TAR" ]] || fail "找不到镜像包 docbox-*-image.tar(.gz)，请用 --image-tar 指定"
+if [[ "${SKIP_LOAD:-0}" -eq 1 ]]; then
+  podman image exists "$IMAGE" || fail "本地没有镜像 $IMAGE，请先跑 bash deploy/build-image.sh，或去掉 --skip-load"
+  info "跳过载入，使用本地镜像 $IMAGE"
+else
+  [[ -n "$IMAGE_TAR" && -f "$IMAGE_TAR" ]] || fail "找不到镜像包 docbox-*-image.tar(.gz)，请用 --image-tar 指定；也可先跑 bash deploy/build-image.sh 再带 --skip-load"
+fi
 info "载入镜像：$IMAGE_TAR（首次约 1~3 分钟）..."
-$SUDO podman load -i "$IMAGE_TAR"
+if [[ "${SKIP_LOAD:-0}" -ne 1 ]]; then
+  $SUDO podman load -i "$IMAGE_TAR"
+fi
 
 # 3) 数据卷 / 数据目录
 if [[ -n "$DATA_DIR" ]]; then

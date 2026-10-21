@@ -11,7 +11,8 @@ param(
   [string]$Volume   = "docbox-data",
   [int]$Cpus        = 4,
   [int]$MemoryMB    = 6144,
-  [switch]$NoBrowser
+  [switch]$NoBrowser,
+  [switch]$SkipLoad
 )
 
 $ErrorActionPreference = 'Stop'
@@ -57,8 +58,13 @@ if (-not $machines.Trim()) {
 if ($LASTEXITCODE -ne 0) { Fail "podman 虚拟机启动失败，请运行 'podman machine start' 查看原因。" }
 Info "podman 虚拟机已就绪"
 
-# 3) 镜像包
-if (-not $ImageTar) {
+# 3) 镜像包（-SkipLoad：镜像已在本机，跳过载入）
+if ($SkipLoad) {
+  $have = (& $podman images --format "{{.Repository}}:{{.Tag}}") -split "`n"
+  if ($have -notcontains $Image) { Fail "本地没有镜像 $Image，请先跑 deploy\build-image.ps1，或去掉 -SkipLoad 用镜像包载入。" }
+  Info "跳过载入，使用本地镜像 $Image"
+}
+if (-not $SkipLoad -and -not $ImageTar) {
   $candidates = @(
     (Join-Path $PSScriptRoot "docbox-0.4.1-image.tar"),
     (Join-Path $PSScriptRoot "docbox-0.4.1-image.tar.gz"),
@@ -67,10 +73,12 @@ if (-not $ImageTar) {
   ) + (Get-ChildItem -Path (Join-Path $script:Root "version") -Recurse -Include "docbox-*-image.tar","docbox-*-image.tar.gz" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
   $ImageTar = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 }
-if (-not $ImageTar -or -not (Test-Path $ImageTar)) { Fail "找不到镜像包 docbox-*-image.tar(.gz)，请把它放在 $PSScriptRoot 后重跑，或用 -ImageTar 指定路径。" }
-Info "载入镜像：$ImageTar（首次需要 1~3 分钟）..."
-& $podman load -i $ImageTar
-if ($LASTEXITCODE -ne 0) { Fail "podman load 失败" }
+if (-not $SkipLoad) {
+  if (-not $ImageTar -or -not (Test-Path $ImageTar)) { Fail "找不到镜像包 docbox-*-image.tar(.gz)，请放在 $PSScriptRoot，或用 -ImageTar 指定；也可以先跑 deploy\build-image.ps1 再带 -SkipLoad。" }
+  Info "载入镜像：$ImageTar（首次需要 1~3 分钟）..."
+  & $podman load -i $ImageTar
+  if ($LASTEXITCODE -ne 0) { Fail "podman load 失败" }
+}
 
 # 4) 数据卷
 $vols = & $podman volume ls --format "{{.Name}}"

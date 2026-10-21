@@ -29,6 +29,8 @@ sudo bash deploy/install-linux.sh --port 3000
 
 ---
 
+> 仓库：<https://github.com/1314ysys/DocBox> · 一键部署与从源码构建见 [`deploy/README.md`](deploy/README.md)
+
 ## 0.4.1 有什么变化
 
 > 主题：**成品文件不再无限堆积——默认 24 小时自动清理，root 可改成永久保存或任意小时数。**

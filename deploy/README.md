@@ -5,7 +5,7 @@
 
 | 内容 | 说明 |
 | --- | --- |
-| 镜像 | `docbox:0.4.1`（加载自 `docbox-0.4.1-image.tar`，约 3.4 GB） |
+| 镜像 | `docbox:0.4.1`（加载自 `docbox-0.4.1-image.tar`，约 4.1 GB；或从源码构建） |
 | 端口 | 宿主机 `3000` → 容器 `3000` |
 | 数据卷 | 默认命名卷 `docbox-data` → `/data`（MariaDB 数据、上传、产物、缓存） |
 | 默认账号 | `root / root`（首次登录后请到「账户管理」改密码） |
@@ -17,8 +17,47 @@
 deploy/
 ├── install-windows.ps1        # Windows 一键部署（自动装 podman / 初始化虚拟机 / 载入镜像 / 起容器）
 ├── install-linux.sh           # Linux 一键部署（apt/dnf/zypper/pacman 自动装 podman）
+├── build-image.ps1            # Windows：从源码构建镜像（不用镜像包）
+├── build-image.sh             # Linux/macOS：从源码构建镜像
+├── fetch-models.mjs           # 下载语音模型到 deploy/models（约 420 MB，构建镜像用）
 ├── docker-entrypoint.sh       # 容器入口（初始化 MariaDB → 建库建号 → 启动应用）
-└── docbox-0.4.1-image.tar     # 由发行包提供：podman save 导出的镜像（也支持 .tar.gz）
+├── models/                    # 语音模型目录（仓库不存模型，用 fetch-models.mjs 拉取）
+└── docbox-0.4.1-image.tar     # 可选：podman save 导出的成品镜像（约 4.1 GB，随发行包单独下载）
+```
+
+## 两种装法
+
+| 方式 | 需要什么 | 适合谁 |
+| --- | --- | --- |
+| **A. 用镜像包**（推荐，最快） | `docbox-0.4.1-image.tar`（4.1 GB，仓库里没有，从 Release/网盘单独取） | 只想跑起来，不想编译 |
+| **B. 从源码构建** | 本仓库源码 + 能上网（拉依赖/模型） | 想自己改代码、或在服务器上直接构建 |
+
+### 方式 B：从源码构建（不要现成镜像包）
+
+```powershell
+# Windows：先克隆仓库，再执行（首次约 10~20 分钟）
+git clone https://github.com/1314ysys/DocBox.git
+cd DocBox
+powershell -ExecutionPolicy Bypass -File .\deploy\build-image.ps1
+# 构建完成后直接起容器（跳过载入镜像包）
+powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1 -SkipLoad
+```
+
+```bash
+# Linux / macOS
+git clone https://github.com/1314ysys/DocBox.git && cd DocBox
+sudo bash deploy/build-image.sh
+sudo bash deploy/install-linux.sh --skip-load
+```
+
+构建脚本会自动：检查 podman（缺则提示装）→ 起虚拟机（Windows）→ 下载语音模型到 `deploy/models` → `podman build -t docbox:0.4.1 .`。
+模型缺失**不会阻塞构建**，只是「语音转写 / 实时转写」不可用；想省 420 MB 带宽可加 `-SkipModels` / `--skip-models`。
+
+手动等价命令：
+
+```bash
+node deploy/fetch-models.mjs          # 可选：下载模型（hf-mirror.com，可用 --source hf 直连）
+podman build -t docbox:0.4.1 .        # Windows 上建议加 --dns 223.5.5.5 --dns 119.29.29.29
 ```
 
 ## Windows 一键部署

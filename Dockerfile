@@ -1,6 +1,6 @@
 # DocBox 0.4.1 · 单镜像（Node 应用 + MariaDB + FFmpeg + 中文 OCR/语音模型 + yt-dlp）
-# 构建：podman build -t docbox:0.4.1 -f Dockerfile .
-# 运行：podman run -d --name docbox -p 3000:3000 -v docbox-data:/data docbox:0.4.1
+# 构建：podman build -t docbox:0.4.2 -f Dockerfile .
+# 运行：podman run -d --name docbox -p 3000:3000 -v docbox-data:/data docbox:0.4.2
 FROM docker.m.daocloud.io/library/node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -63,11 +63,13 @@ COPY docbox/ ./
 RUN mkdir -p uploads outputs tmp models .cache \
     && node scripts/fix-sharp.mjs || true
 
-# 模型已在上面 COPY 进来，这里只校验（离线镜像，不再联网下载）
-RUN test -f models/sherpa/sense-voice/model.int8.onnx \
-    && test -f models/sherpa/streaming-zipformer-zh-en/encoder-epoch-99-avg-1.int8.onnx \
-    && test -f models/silero-vad-fp32.onnx \
-    && du -sh models
+# 模型校验：有则 OK，缺失只告警（不装模型也能构建/使用，转写功能不可用而已）
+RUN for f in models/sherpa/sense-voice/model.int8.onnx \
+            models/sherpa/streaming-zipformer-zh-en/encoder-epoch-99-avg-1.int8.onnx \
+            models/silero-vad-fp32.onnx; do \
+      if [ -f "$f" ]; then echo "OK   $f"; \
+      else echo "WARN 缺少语音模型 $f —— 镜像仍可用，转写不可用（跑 deploy/fetch-models.mjs 后重建）"; fi; \
+    done; du -sh models
 
 # 启动脚本
 COPY deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

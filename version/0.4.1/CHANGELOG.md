@@ -54,3 +54,15 @@ root 登录后进「账户管理」，新增面板：
 - 老用户升级后默认就是 **24 小时**，历史成品会在下一次扫描（≤30 分钟）按 mtime 清理；
 - 想保留历史产物，先到「账户管理」把保留策略改成「永久保存」再升级，或把 `outputs/` 备份走；
 - 容器部署：清理的是数据卷 `docbox-data` 里的 `/data/outputs`。
+
+## 5. 部署与构建脚本（随仓库发布）
+
+| 文件 | 作用 |
+| --- | --- |
+| `deploy/build-image.ps1` / `.sh` | **从源码一键构建镜像**：检查 podman → 起虚拟机 → 拉语音模型 → `podman build` |
+| `deploy/fetch-models.mjs` | 跨平台下载 3 组语音模型（约 420 MB，hf-mirror.com，可 `--source hf` 直连、`--out` 换目录、已存在自动跳过） |
+| `deploy/install-windows.ps1` | 新增 `-SkipLoad`：镜像已在本地时跳过载入镜像包 |
+| `deploy/install-linux.sh` | 新增 `--skip-load`：同上 |
+| `Dockerfile` | 语音模型校验由「缺失即失败」改为**缺失只告警**，没有模型也能构建/运行（转写不可用） |
+
+> 说明：镜像包（4.1 GB）超出 GitHub 单文件上限，仓库只放源码与脚本；镜像可用 `deploy/build-image.ps1`/`.sh` 自行构建，或从发行包获取。
