@@ -29,21 +29,24 @@ deploy/
 
 | 方式 | 需要什么 | 适合谁 |
 | --- | --- | --- |
-| **0. 直接拉阿里云 ACR 镜像**（最省事） | 能访问 `registry.cn-hangzhou.aliyuncs.com`，约 4.3 GB 下载 | 只想跑起来，不想构建、也没有本地 tar |
+| **0. 直接拉阿里云 ACR 镜像**（最省事） | 能访问 `crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`，约 4.3 GB 下载 | 只想跑起来，不想构建、也没有本地 tar |
 | **A. 用镜像包** | `docbox-0.4.1-image.tar`（4.1 GB，仓库里没有，从 Release/网盘单独取） | 内网 / 离线环境 |
 | **B. 从源码构建** | 本仓库源码 + 能上网（拉依赖/模型） | 想自己改代码、或在服务器上直接构建 |
 
 ### 方式 0：从阿里云 ACR 拉取（推荐，两条命令）
 
-镜像位置：`registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev`，标签 `0.4.1` / `latest`。
+镜像位置：`crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev`，标签 `0.4.1` / `latest`。
+
+> 仓库现在是**公开**的，`podman pull` / `docker pull` **免登录**；若以后改成私有，先 `podman login crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`（用户名/密码见阿里云控制台「访问凭证」）。
+> 已发布 digest：`sha256:2647d5172afa3c4266eb717427c62ab06175f176fc1ff24f678f481828ec6ccf`（`0.4.1` 与 `latest` 同一镜像）。
 
 ```bash
 # 1) 拉镜像（国内直连，速度快）
-podman pull registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1
-# 用 docker 也一样：docker pull registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1
+podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1
+# 用 docker 也一样：docker pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1
 
 # 2) 一键起容器（脚本自动建数据卷、等健康检查、打印访问地址）
-sudo bash deploy/install-linux.sh --image registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1 --skip-load
+sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1 --skip-load
 ```
 
 不想用脚本就手工起（数据全在 `docbox-data` 卷里，删容器不丢）：
@@ -52,7 +55,7 @@ sudo bash deploy/install-linux.sh --image registry.cn-hangzhou.aliyuncs.com/<命
 podman volume create docbox-data
 podman run -d --name docbox --restart=always -p 3000:3000 \
   -v docbox-data:/data --shm-size=1g \
-  registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1
+  crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1
 curl http://127.0.0.1:3000/api/health     # {"ok":true,"version":"0.4.1",...}
 ```
 

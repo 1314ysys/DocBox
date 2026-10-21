@@ -34,5 +34,17 @@
     "tar": "docbox-0.4.1-image.tar",
     "tarSizeBytes": 4314960384,
     "tarSha256": "242a7aa5af4a5d6fde9b4c75a6efc7b34d5f8f70697b0f852c1aa616784e3a22"
+  },
+  "acr": {
+    "registry": "crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com",
+    "repository": "podman_images_dev/images_dev",
+    "tags": [
+      "0.4.1",
+      "latest"
+    ],
+    "digest": "sha256:2647d5172afa3c4266eb717427c62ab06175f176fc1ff24f678f481828ec6ccf",
+    "visibility": "public",
+    "pushedAt": "2026-10-21T17:37:12+08:00",
+    "imageId": "7e733823392c33d059b32bf8661d702d5348d9438ac1e69d7eba91ab0fe4dcc8"
   }
 }

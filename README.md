@@ -13,14 +13,17 @@
 
 ### 从阿里云 ACR 拉镜像（最省事，不用下 4GB tar、不用构建）
 
-镜像发布在阿里云容器镜像服务（个人版）杭州实例：`registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev`（标签 `0.4.1` / `latest`）。
+镜像发布在阿里云容器镜像服务（个人版）杭州实例：`crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev`（标签 `0.4.1` / `latest`）。
+
+> 仓库现在是**公开**的，`podman pull` / `docker pull` **免登录**；若以后改成私有，先 `podman login crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`（用户名/密码见阿里云控制台「访问凭证」）。
+> 已发布 digest：`sha256:2647d5172afa3c4266eb717427c62ab06175f176fc1ff24f678f481828ec6ccf`（`0.4.1` 与 `latest` 同一镜像）。
 
 ```bash
 # 1) 拉镜像（国内直连，比从 GitHub 下 tar 快很多）
-podman pull registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1   # docker 同理
+podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1   # docker 同理
 
 # 2) 一键起容器（自动建数据卷、等健康检查、打印访问地址）
-sudo bash deploy/install-linux.sh --image registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1 --skip-load
+sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1 --skip-load
 ```
 
 Windows 也是先 `podman pull` 再 `.\deploy\install-windows.ps1 -Image <镜像名> -SkipLoad`。

@@ -66,3 +66,12 @@ root 登录后进「账户管理」，新增面板：
 | `Dockerfile` | 语音模型校验由「缺失即失败」改为**缺失只告警**，没有模型也能构建/运行（转写不可用） |
 
 > 说明：镜像包（4.1 GB）超出 GitHub 单文件上限，仓库只放源码与脚本；镜像可用 `deploy/build-image.ps1`/`.sh` 自行构建，或从发行包获取。
+
+## 6. 镜像发布（阿里云 ACR 个人版）
+
+- 镜像已推送到阿里云容器镜像服务个人版（杭州）：`crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev`，标签 `0.4.1` / `latest`；
+- manifest digest：`sha256:2647d5172afa3c4266eb717427c62ab06175f176fc1ff24f678f481828ec6ccf`（与本地 `localhost/docbox:0.4.1` 的 image ID `7e733823392c` 一致，层内容未变）；
+- 仓库为**公开**仓库，`podman pull` / `docker pull` 免登录，国内拉取速度优于从 GitHub 下载 4 GB tar；
+- 实测：匿名 `podman pull` 成功 → 起容器 → `/api/health` 返回 `ok:true / 0.4.1 / MariaDB 10.11.19`，容器内 `Chromium 155.0.8059.79`、`yt-dlp 2026.08.19` 正常；
+- 部署入口：`sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1 --skip-load`，或 Windows `podman pull` 后 `install-windows.ps1 -Image <镜像> -SkipLoad`；
+- 说明：ACR **个人版不支持镜像构建**，绑定 GitHub 代码源只做登记，不会自动构建/自动更新镜像（自动构建需企业版，或在 GitHub Actions 侧构建后推送）。
