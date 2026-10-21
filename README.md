@@ -11,6 +11,22 @@
 
 不想装 Node / MySQL / FFmpeg，就用容器：一个镜像自带 Node 22、MariaDB、FFmpeg、中文字体、中文 OCR 与 SenseVoice/zipformer 语音模型，数据全部留在数据卷里。
 
+### 从阿里云 ACR 拉镜像（最省事，不用下 4GB tar、不用构建）
+
+镜像发布在阿里云容器镜像服务（个人版）杭州实例：`registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev`（标签 `0.4.1` / `latest`）。
+
+```bash
+# 1) 拉镜像（国内直连，比从 GitHub 下 tar 快很多）
+podman pull registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1   # docker 同理
+
+# 2) 一键起容器（自动建数据卷、等健康检查、打印访问地址）
+sudo bash deploy/install-linux.sh --image registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1 --skip-load
+```
+
+Windows 也是先 `podman pull` 再 `.\deploy\install-windows.ps1 -Image <镜像名> -SkipLoad`。
+
+### 用离线镜像包 / 从源码构建
+
 ```powershell
 # Windows：右键「使用 PowerShell 运行」
 powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1

@@ -25,11 +25,42 @@ deploy/
 └── docbox-0.4.1-image.tar     # 可选：podman save 导出的成品镜像（约 4.1 GB，随发行包单独下载）
 ```
 
-## 两种装法
+## 三种装法
 
 | 方式 | 需要什么 | 适合谁 |
 | --- | --- | --- |
-| **A. 用镜像包**（推荐，最快） | `docbox-0.4.1-image.tar`（4.1 GB，仓库里没有，从 Release/网盘单独取） | 只想跑起来，不想编译 |
+| **0. 直接拉阿里云 ACR 镜像**（最省事） | 能访问 `registry.cn-hangzhou.aliyuncs.com`，约 4.3 GB 下载 | 只想跑起来，不想构建、也没有本地 tar |
+| **A. 用镜像包** | `docbox-0.4.1-image.tar`（4.1 GB，仓库里没有，从 Release/网盘单独取） | 内网 / 离线环境 |
+| **B. 从源码构建** | 本仓库源码 + 能上网（拉依赖/模型） | 想自己改代码、或在服务器上直接构建 |
+
+### 方式 0：从阿里云 ACR 拉取（推荐，两条命令）
+
+镜像位置：`registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev`，标签 `0.4.1` / `latest`。
+
+```bash
+# 1) 拉镜像（国内直连，速度快）
+podman pull registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1
+# 用 docker 也一样：docker pull registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1
+
+# 2) 一键起容器（脚本自动建数据卷、等健康检查、打印访问地址）
+sudo bash deploy/install-linux.sh --image registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1 --skip-load
+```
+
+不想用脚本就手工起（数据全在 `docbox-data` 卷里，删容器不丢）：
+
+```bash
+podman volume create docbox-data
+podman run -d --name docbox --restart=always -p 3000:3000 \
+  -v docbox-data:/data --shm-size=1g \
+  registry.cn-hangzhou.aliyuncs.com/<命名空间>/images_dev:0.4.1
+curl http://127.0.0.1:3000/api/health     # {"ok":true,"version":"0.4.1",...}
+```
+
+> 默认账号 `root / root`，登录后到「账户管理」改密码。`--shm-size=1g` 是给内置 chromium（视频嗅探）留共享内存，不给也能跑（启动参数已带 `--disable-dev-shm-usage`）。
+
+### 方式 A：用离线镜像包
+
+ | `docbox-0.4.1-image.tar`（4.1 GB，仓库里没有，从 Release/网盘单独取） | 只想跑起来，不想编译 |
 | **B. 从源码构建** | 本仓库源码 + 能上网（拉依赖/模型） | 想自己改代码、或在服务器上直接构建 |
 
 ### 方式 B：从源码构建（不要现成镜像包）
