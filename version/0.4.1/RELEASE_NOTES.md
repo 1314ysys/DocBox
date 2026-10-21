@@ -38,3 +38,13 @@ powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1 -SkipLoad
 ### 说明
 
 仅供个人/团队本地使用：视频解析只处理你有权访问的公开链接，请遵守各站点条款与当地法律。
+
+## 镜像地址（阿里云 ACR 个人版，公开仓库，免登录）
+
+```bash
+podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1
+```
+
+- 标签：`0.4.1` / `latest`；digest `sha256:2647d517…`
+- 一键部署：`sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1 --skip-load`
+- 更详细的三种装法见 [deploy/README.md](deploy/README.md)
