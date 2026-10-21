@@ -10,6 +10,9 @@ export function renderEditor() {
     history: [],
     crop: null,
     ratio: 1,
+    zoom: 1,
+    fit: 1,
+    cssScale: 1,
     name: 'image',
     dragStart: null,
   };
@@ -54,6 +57,9 @@ export function renderEditor() {
   $('#edQuality').oninput = () => { $('#edQualityV').textContent = $('#edQuality').value + '%'; };
   $('#edExport').onclick = exportImage;
 
+  $('#edZoomIn').onclick = () => zoomAt(ed.zoom * 1.25, null);
+  $('#edZoomOut').onclick = () => zoomAt(ed.zoom / 1.25, null);
+  $('#edZoomFit').onclick = () => { ed.zoom = 1; applyZoom(); fitScroll(); };
   bindCropDrag();
 }
 
@@ -89,15 +95,81 @@ function render() {
   const canvas = $('#edCanvas');
   const wrap = $('#edWrap');
   if (!ed.current) return;
-  const maxW = Math.min(wrap.clientWidth || 900, 1000);
+  // 画布始终按原图 1:1 绘制，缩放只改 CSS 尺寸：
+  // 这样选区坐标永远等于原图坐标，且放大后仍是原始像素（不糊）。
+  canvas.width = ed.current.width;
+  canvas.height = ed.current.height;
+  canvas.getContext('2d').drawImage(ed.current, 0, 0);
+  const maxW = Math.min((wrap.clientWidth || 900) - 36, 1000);
   const maxH = Math.max(320, window.innerHeight * 0.62);
-  const scale = Math.min(maxW / ed.current.width, maxH / ed.current.height, 1);
-  canvas.width = Math.round(ed.current.width * scale);
-  canvas.height = Math.round(ed.current.height * scale);
-  canvas.style.width = canvas.width + 'px';
-  canvas.style.height = canvas.height + 'px';
-  canvas.getContext('2d').drawImage(ed.current, 0, 0, canvas.width, canvas.height);
-  ed.scale = scale;
+  ed.fit = Math.min(maxW / ed.current.width, maxH / ed.current.height, 1) || 1;
+  if (ed.zoom > 1) ed.zoom = Math.min(ed.zoom, 12);
+  applyZoom();
+  fitScroll();
+}
+
+/** 按 fit × zoom 设置画布显示尺寸，并同步缩放百分比 */
+function applyZoom() {
+  const canvas = $('#edCanvas');
+  if (!ed.current) return;
+  ed.cssScale = Math.max(0.02, Math.min(12, (ed.fit || 1) * (ed.zoom || 1)));
+  canvas.style.width = Math.max(1, Math.round(ed.current.width * ed.cssScale)) + 'px';
+  canvas.style.height = Math.max(1, Math.round(ed.current.height * ed.cssScale)) + 'px';
+  const zv = $('#edZoomVal');
+  if (zv) zv.textContent = Math.abs(ed.zoom - 1) < 0.02 ? '适应' : Math.round(ed.cssScale * 100) + '%';
+  drawCropBox();
+}
+
+/** 居中滚动（未放大时无滚动条，等同无效） */
+function fitScroll() {
+  const wrap = $('#edWrap');
+  if (!wrap) return;
+  wrap.scrollLeft = Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
+  wrap.scrollTop = Math.max(0, (wrap.scrollHeight - wrap.clientHeight) / 2);
+}
+
+/** 以某个锚点（鼠标位置）为中心缩放，锚点保持不动 */
+function zoomAt(nextZoom, e) {
+  const wrap = $('#edWrap');
+  const stage = $('#edStage');
+  const prev = ed.cssScale || 1;
+  ed.zoom = Math.max(0.2, Math.min(12, Number(nextZoom) || 1));
+  const wr = wrap.getBoundingClientRect();
+  const sr = stage.getBoundingClientRect();
+  const anchorX = e ? e.clientX - sr.left : (stage.clientWidth || 0) / 2;
+  const anchorY = e ? e.clientY - sr.top : (stage.clientHeight || 0) / 2;
+  const viewX = e ? e.clientX - wr.left : wrap.clientWidth / 2;
+  const viewY = e ? e.clientY - wr.top : wrap.clientHeight / 2;
+  applyZoom();
+  const ratio = (ed.cssScale || 1) / prev;
+  wrap.scrollLeft = Math.max(0, stage.offsetLeft + anchorX * ratio - viewX);
+  wrap.scrollTop = Math.max(0, stage.offsetTop + anchorY * ratio - viewY);
+}
+
+/** 把鼠标位置换算成原图像素坐标 */
+function toImagePoint(e) {
+  const canvas = $('#edCanvas');
+  const r = canvas.getBoundingClientRect();
+  const s = ed.cssScale || 1;
+  const x = (e.clientX - r.left) / s;
+  const y = (e.clientY - r.top) / s;
+  return {
+    x: Math.max(0, Math.min(ed.current.width, x)),
+    y: Math.max(0, Math.min(ed.current.height, y)),
+  };
+}
+
+/** 按原图坐标把选区框画到屏幕上 */
+function drawCropBox() {
+  const box = $('#edCropBox');
+  if (!box) return;
+  if (!ed.crop || ed.crop.w < 0.5 || ed.crop.h < 0.5) { box.hidden = true; return; }
+  const s = ed.cssScale || 1;
+  box.hidden = false;
+  box.style.left = Math.round(ed.crop.x * s) + 'px';
+  box.style.top = Math.round(ed.crop.y * s) + 'px';
+  box.style.width = Math.round(ed.crop.w * s) + 'px';
+  box.style.height = Math.round(ed.crop.h * s) + 'px';
 }
 
 function snapshot() {
@@ -254,45 +326,94 @@ function bindCropDrag() {
   const box = $('#edCropBox');
   const canvas = $('#edCanvas');
   const wrap = $('#edWrap');
+  let mode = null;
   let start = null;
+  let startScroll = null;
+
+  // 右键选区，所以屏蔽画布右键菜单
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
   canvas.addEventListener('pointerdown', (e) => {
     if (!ed.current) return;
-    start = { x: e.offsetX, y: e.offsetY };
-    box.hidden = false;
-    box.style.left = start.x + 'px';
-    box.style.top = start.y + 'px';
-    box.style.width = '0px';
-    box.style.height = '0px';
-    canvas.setPointerCapture(e.pointerId);
+    const isMiddle = e.button === 1;
+    const isRight = e.button === 2;
+    const isTouchSelect = e.button === 0 && e.pointerType !== 'mouse';
+
+    if (isMiddle) {
+      // 中键（滚轮键）按住拖动 = 平移
+      e.preventDefault();
+      mode = 'pan';
+      start = { x: e.clientX, y: e.clientY };
+      startScroll = { left: wrap.scrollLeft, top: wrap.scrollTop };
+      wrap.classList.add('panning');
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      return;
+    }
+    if (!isRight && !isTouchSelect) return;   // 左键不画选区，避免误操作
+
+    e.preventDefault();
+    mode = 'select';
+    const p = toImagePoint(e);
+    start = p;
+    ed.crop = { x: p.x, y: p.y, w: 0, h: 0 };
+    wrap.classList.add('selecting');
+    drawCropBox();
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
   });
+
   canvas.addEventListener('pointermove', (e) => {
-    if (!start) return;
-    const x = Math.min(start.x, e.offsetX);
-    const y = Math.min(start.y, e.offsetY);
-    const w = Math.abs(e.offsetX - start.x);
-    const h = Math.abs(e.offsetY - start.y);
-    box.style.left = x + 'px';
-    box.style.top = y + 'px';
-    box.style.width = w + 'px';
-    box.style.height = h + 'px';
-    ed.crop = { x, y, w, h };
+    if (!mode) return;
+    if (mode === 'pan') {
+      wrap.scrollLeft = startScroll.left - (e.clientX - start.x);
+      wrap.scrollTop = startScroll.top - (e.clientY - start.y);
+      return;
+    }
+    const p = toImagePoint(e);
+    const x = Math.max(0, Math.min(start.x, p.x));
+    const y = Math.max(0, Math.min(start.y, p.y));
+    ed.crop = {
+      x,
+      y,
+      w: Math.max(0, Math.min(ed.current.width - x, Math.abs(p.x - start.x))),
+      h: Math.max(0, Math.min(ed.current.height - y, Math.abs(p.y - start.y))),
+    };
+    drawCropBox();
   });
-  const end = () => { start = null; };
+
+  const end = (e) => {
+    if (mode === 'pan') wrap.classList.remove('panning');
+    if (mode === 'select') {
+      wrap.classList.remove('selecting');
+      if (!ed.crop || ed.crop.w < 2 || ed.crop.h < 2) { ed.crop = null; box.hidden = true; }
+      else $('#edInfo').textContent = '选区 ' + Math.round(ed.crop.w) + ' × ' + Math.round(ed.crop.h) + ' px';
+    }
+    mode = null;
+    start = null;
+    try { if (e && e.pointerId != null) canvas.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+  };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
-  window.addEventListener('resize', () => { if (ed?.current) render(); });
+
+  // 滚轮 = 自由缩放（以光标为中心），按住中键拖动 = 平移
+  wrap.addEventListener('wheel', (e) => {
+    if (!ed.current) return;
+    e.preventDefault();
+    zoomAt(ed.zoom * Math.exp(-e.deltaY * 0.0016), e);
+  }, { passive: false });
+
+  window.addEventListener('resize', () => { if (ed && ed.current) render(); });
 }
 
 function applyCrop() {
   if (!ed.current || !ed.crop || ed.crop.w < 4 || ed.crop.h < 4) {
-    toast('请先在画布上拖出选区', 'error');
+    toast('请先用右键在画布上拖出要保留的区域', 'error');
     return;
   }
-  const s = ed.scale || 1;
-  const x = Math.round(ed.crop.x / s);
-  const y = Math.round(ed.crop.y / s);
-  const w = Math.round(ed.crop.w / s);
-  const h = Math.round(ed.crop.h / s);
+  // 选区坐标就是原图坐标（画布 1:1 绘制），放大/缩小都不影响精度
+  const x = Math.round(ed.crop.x);
+  const y = Math.round(ed.crop.y);
+  const w = Math.max(1, Math.round(ed.crop.w));
+  const h = Math.max(1, Math.round(ed.crop.h));
   snapshot();
   const cv = document.createElement('canvas');
   cv.width = w;
@@ -301,11 +422,13 @@ function applyCrop() {
   ed.current = cv;
   ed.ratio = w / h;
   ed.crop = null;
+  ed.zoom = 1;
   $('#edCropBox').hidden = true;
   $('#edWidth').value = w;
   $('#edHeight').value = h;
   render();
   $('#edInfo').textContent = w + ' × ' + h + ' px';
+  toast('已裁剪到 ' + w + ' × ' + h);
 }
 
 function clearCrop() {

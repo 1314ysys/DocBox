@@ -1,0 +1,22 @@
+{
+  "version": "0.4.2",
+  "date": "2026-10-21",
+  "theme": "水印模板按参考样式扩充到 11 套；图片编辑支持右键选区 + 滚轮缩放",
+  "codeChanges": [
+    "docbox/src/watermark-templates.mjs（新增 4 套模板 + refGeo 字段组）",
+    "docbox/src/lib/watermark.mjs（facts / free 行 + 溢出兜底）",
+    "docbox/public/index.html（stage 容器、缩放控件、裁剪文案）",
+    "docbox/public/styles.css（canvas-scroll / canvas-stage / ed-zoom）",
+    "docbox/public/js/views/editor.mjs（1:1 绘制、右键选区、滚轮缩放、中键平移）",
+    "docbox/src/config.mjs、docbox/package.json（版本号 0.4.2）"
+  ],
+  "dbMigration": false,
+  "smoke": {
+    "pass": 192,
+    "total": 192
+  },
+  "image": {
+    "built": false,
+    "note": "0.4.2 镜像尚未构建/推送，ACR 仍为 0.4.1"
+  }
+}

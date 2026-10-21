@@ -169,6 +169,10 @@ python/apm_server.py         # APM 降噪边车（可选，实时转写前处理
 | 模块 | 数量 | 关键说明 |
 | --- | --- | --- |
 | 图片 | 5 | sharp 处理；证件照有预设排版；PDF 水印支持中文（走 TTF 嵌入） |
+
+> 0.4.2 起：图片水印共 **11 套**（模板定义唯一事实来源 = `docbox/src/watermark-templates.mjs`，行类型有 `brand/time/meta/location/gps/kv/shot/note/facts/free`）。新增字段（海拔/方位角/拍摄人/工作单位）只要在 `refGeo` 里加一条 + 模板 `rows` 里引用即可。
+>
+> 图片编辑（`docbox/public/js/views/editor.mjs`）约定：画布永远按原图 1:1 绘制，缩放只用 CSS（`ed.cssScale = fit × zoom`），所以**选区坐标就是原图坐标**；交互固定为「右键拖拽选区 / 滚轮缩放 / 中键平移」。
 | PDF | 23 | 原生实现（pdf-lib + pdfjs + canvas），不依赖 Stirling / Java |
 | 文档 | 15 | Word/Excel/PPT → PDF（mammoth / xlsx / 自研 PPTX 解析）；无浏览器时降级为纯文本 PDF |
 | 表格 | 3 | Excel ↔ CSV ↔ JSON |

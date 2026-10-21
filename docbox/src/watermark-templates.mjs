@@ -11,7 +11,105 @@ const commonTime = [
   { key: 'note', label: '备注', type: 'textarea', value: '', placeholder: '补充说明，可留空' },
 ];
 
+// 参考「今日水印相机」样式补充的字段（海拔 / 方位角 / 拍摄人 / 工作单位）
+const refGeo = [
+  { key: 'elevation', label: '海拔', type: 'text', value: '', placeholder: '例如：301.4 米' },
+  { key: 'bearing', label: '方位角', type: 'text', value: '', placeholder: '例如：东南 135°' },
+  { key: 'photographer', label: '拍摄人', type: 'text', value: '', placeholder: '例如：张工' },
+  { key: 'company', label: '工作单位', type: 'text', value: '', placeholder: '例如：某某建设集团' },
+];
+
 export const WATERMARK_TEMPLATES = [
+  {
+    id: 'brand',
+    name: '通用品牌',
+    mode: 'card',
+    accent: '#1a73e8',
+    desc: '通用品牌水印：品牌名 + 真实时间 + 地点 + 经纬度/天气/海拔/方位角 + 拍摄人/工作单位',
+    fields: [
+      { key: 'brand', label: '品牌 / 单位名', type: 'text', value: '通用品牌' },
+      ...commonTime,
+      ...refGeo,
+    ],
+    rows: [
+      { type: 'brand', key: 'brand' },
+      { type: 'shot', key: 'date', timeKey: 'time', label: '真实时间' },
+      { type: 'location', key: 'location' },
+      { type: 'facts', items: [['gps', '经纬度'], ['weather', '天气'], ['elevation', '海拔'], ['bearing', '方位角']] },
+      { type: 'kv', key: 'photographer', label: '拍摄人' },
+      { type: 'kv', key: 'company', label: '工作单位' },
+      { type: 'note', key: 'note' },
+    ],
+  },
+  {
+    id: 'attendance',
+    name: '考勤打卡',
+    mode: 'card',
+    accent: '#f59e0b',
+    desc: '考勤打卡：大字打卡时间 + 日期星期天气 + 地点 + 经纬度/海拔 + 拍摄人/工作单位',
+    fields: [
+      { key: 'brand', label: '公司 / 品牌', type: 'text', value: '考勤打卡' },
+      { key: 'timeLabel', label: '时间标签', type: 'text', value: '打卡' },
+      ...commonTime,
+      ...refGeo,
+    ],
+    rows: [
+      { type: 'brand', key: 'brand' },
+      { type: 'time', key: 'time', labelKey: 'timeLabel' },
+      { type: 'meta', dateKey: 'date', weatherKey: 'weather' },
+      { type: 'location', key: 'location' },
+      { type: 'facts', items: [['gps', '经纬度'], ['elevation', '海拔']] },
+      { type: 'kv', key: 'photographer', label: '拍摄人' },
+      { type: 'kv', key: 'company', label: '工作单位' },
+      { type: 'note', key: 'note' },
+    ],
+  },
+  {
+    id: 'record',
+    name: '工程记录',
+    mode: 'card',
+    accent: '#0ea5a4',
+    desc: '工程记录：自定义标题 + 施工内容 + 拍摄时间 + 地点 + 经纬度/天气/海拔/方位角',
+    fields: [
+      { key: 'title', label: '自定义标题', type: 'text', value: '工程记录' },
+      { key: 'content', label: '施工内容', type: 'text', value: '', placeholder: '例如：混凝土浇筑' },
+      ...commonTime,
+      ...refGeo,
+    ],
+    rows: [
+      { type: 'brand', key: 'title' },
+      { type: 'kv', key: 'content', label: '施工内容' },
+      { type: 'shot', key: 'date', timeKey: 'time', label: '拍摄时间' },
+      { type: 'location', key: 'location' },
+      { type: 'facts', items: [['gps', '经纬度'], ['weather', '天气'], ['elevation', '海拔'], ['bearing', '方位角']] },
+      { type: 'kv', key: 'photographer', label: '拍摄人' },
+      { type: 'kv', key: 'company', label: '工作单位' },
+      { type: 'note', key: 'note' },
+    ],
+  },
+  {
+    id: 'custom',
+    name: '自定义水印',
+    mode: 'card',
+    accent: '#7c3aed',
+    desc: '自定义水印：自定义标题 + 自由文字 + 拍摄时间/地点/经纬度/海拔/天气/拍摄人/工作单位',
+    fields: [
+      { key: 'title', label: '自定义标题', type: 'text', value: '自定义水印' },
+      { key: 'lines', label: '自定义文字（每行一条）', type: 'textarea', value: '', placeholder: '每行一条，例如：\n直播应急切换演练\n负责人：张三' },
+      ...commonTime,
+      ...refGeo,
+    ],
+    rows: [
+      { type: 'brand', key: 'title' },
+      { type: 'free', key: 'lines' },
+      { type: 'shot', key: 'date', timeKey: 'time', label: '拍摄时间' },
+      { type: 'location', key: 'location' },
+      { type: 'facts', items: [['gps', '经纬度'], ['weather', '天气'], ['elevation', '海拔'], ['bearing', '方位角']] },
+      { type: 'kv', key: 'photographer', label: '拍摄人' },
+      { type: 'kv', key: 'company', label: '工作单位' },
+      { type: 'note', key: 'note' },
+    ],
+  },
   {
     id: 'construction',
     name: '建筑施工',

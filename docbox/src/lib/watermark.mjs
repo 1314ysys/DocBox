@@ -150,9 +150,15 @@ export async function renderCardWatermark(rawSpec, imageWidth, imageHeight) {
 
   async function pushLine(text, { size, color = white, alpha = 1, bold = false, gapAfter = gap, left = pad, maxWidth = maxTextW } = {}) {
     if (!text) return 0;
-    for (const line of wrapText(text, maxWidth, size * s)) {
-      const buf = await textPng(line, { size: size * s, color, alpha, bold });
-      const m = await measure(buf);
+    const limit = Math.max(40, Math.min(maxWidth, cardW - left - pad));
+    for (const line of wrapText(text, limit, size * s)) {
+      let buf = await textPng(line, { size: size * s, color, alpha, bold });
+      let m = await measure(buf);
+      if (m.w > limit) {
+        // wrapText 用的是估算字宽，遇到数字/符号串可能仍会溢出：等比缩到限宽内，避免 composite 报错
+        buf = await sharp(buf).resize({ width: Math.max(1, Math.round(limit)) }).png().toBuffer();
+        m = await measure(buf);
+      }
       await addImage(buf, left, cursorY);
       cursorY += m.h + gapAfter;
     }
@@ -164,8 +170,13 @@ export async function renderCardWatermark(rawSpec, imageWidth, imageHeight) {
     const labelText = label + '：';
     const labelBuf = await textPng(labelText, { size: size * s, color: labelColor, alpha: 0.95 });
     const labelM = await measure(labelBuf);
-    const valueBuf = await textPng(value, { size: size * s, color: valueColor, alpha: 1 });
-    const valueM = await measure(valueBuf);
+    let valueBuf = await textPng(value, { size: size * s, color: valueColor, alpha: 1 });
+    let valueM = await measure(valueBuf);
+    if (valueM.w > maxTextW - labelM.w - 4 * s) {
+      const avail = Math.max(40, maxTextW - labelM.w - 4 * s);
+      valueBuf = await sharp(valueBuf).resize({ width: Math.round(avail) }).png().toBuffer();
+      valueM = await measure(valueBuf);
+    }
     const w = labelM.w + valueM.w;
     if (w > maxTextW && labelM.w < maxTextW * 0.6) {
       await addImage(labelBuf, pad, cursorY);
@@ -260,13 +271,39 @@ export async function renderCardWatermark(rawSpec, imageWidth, imageHeight) {
     } else if (row.type === 'note') {
       const value = spec[row.key];
       if (value) await pushLine(value, { size: 21, color: '#e2e8f0', alpha: 0.9 });
+    } else if (row.type === 'facts') {
+      // 一行里拼接多个「标签：值」，例如「经纬度：26.8°N · 天气：晴 · 海拔：301.4」
+      const parts = [];
+      for (const pair of row.items || []) {
+        const [key, label] = pair;
+        const value = spec[key];
+        if (value) parts.push(label ? label + '：' + value : String(value));
+      }
+      if (parts.length) await pushLine(parts.join(' · '), { size: 21, color: '#cbd5e1', alpha: 0.95, gapAfter: 8 * s });
+    } else if (row.type === 'free') {
+      // 自定义多行文字（每行一条）
+      const raw = spec[row.key];
+      const lines = Array.isArray(raw) ? raw : String(raw || '').split('\n');
+      for (const line of lines.map((x) => String(x).trim()).filter(Boolean)) {
+        await pushLine(line, { size: 26, color: white, alpha: 0.97, gapAfter: 8 * s });
+      }
     }
   }
 
   const height = Math.max(190 * s, cursorY - gap + pad);
   const width = cardW;
   const bg = await sharp(Buffer.from(cardBackground(width, Math.round(height), { accent, radius: Math.round(18 * s), opacity }))).png().toBuffer();
-  const composites = [{ input: bg, left: 0, top: 0 }, ...items];
+  const safeItems = [];
+  for (const it of items) {
+    let input = it.input;
+    const m = await measure(input);
+    if (it.left + m.w > width) {
+      const avail = Math.max(20, width - it.left - Math.round(2 * s));
+      input = await sharp(input).resize({ width: Math.min(m.w, avail) }).png().toBuffer();
+    }
+    safeItems.push({ input, left: Math.max(0, Math.min(it.left, width - 1)), top: Math.max(0, it.top) });
+  }
+  const composites = [{ input: bg, left: 0, top: 0 }, ...safeItems];
   if (logoBuf) composites.push({ input: logoBuf, left: Math.round(cardW - pad - logoW), top: Math.round(pad) });
 
   let card = await sharp({

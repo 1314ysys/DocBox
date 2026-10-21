@@ -162,8 +162,12 @@
         <div class="editor-shell">
           <div class="editor-stage">
             <div id="edWrap" class="canvas-wrap">
-              <canvas id="edCanvas"></canvas>
-              <div id="edCropBox" class="crop-box" hidden></div>
+              <div class="canvas-scroll">
+                <div id="edStage" class="canvas-stage">
+                  <canvas id="edCanvas"></canvas>
+                  <div id="edCropBox" class="crop-box" hidden></div>
+                </div>
+              </div>
               <div id="edEmpty" class="canvas-empty">
                 <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9.5" r="1.8"></circle><path d="m21 15-4.5-4.5L7 20"></path></svg>
                 <b>拖入图片，或点击选择</b>
@@ -174,7 +178,13 @@
             </div>
             <div class="canvas-toolbar">
               <span id="edInfo" class="muted">尚未载入图片</span>
+              <span class="ed-hint muted">右键拖拽选区 · 滚轮缩放 · 中键拖拽平移</span>
               <div class="spacer"></div>
+              <div class="ed-zoom">
+                <button class="btn btn-ghost btn-sm" id="edZoomOut" title="缩小">−</button>
+                <button class="btn btn-ghost btn-sm" id="edZoomFit" title="适应窗口"><span id="edZoomVal">适应</span></button>
+                <button class="btn btn-ghost btn-sm" id="edZoomIn" title="放大">＋</button>
+              </div>
               <button class="btn btn-ghost btn-sm" id="edUndo" disabled>撤销</button>
               <button class="btn btn-ghost btn-sm" id="edReset" disabled>重置</button>
               <button class="btn btn-ghost btn-sm" id="edChange">更换图片</button>
@@ -191,7 +201,7 @@
               </div>
             </div>
             <div class="ep-group">
-              <h4>裁剪 <small>在画布上拖拽选择区域</small></h4>
+              <h4>裁剪 <small>在画布上按住<b>右键</b>拖出选区（滚轮缩放，中键平移）</small></h4>
               <div class="btn-row">
                 <button class="btn btn-soft" id="edCropApply">裁剪选区</button>
                 <button class="btn btn-ghost" id="edCropClear">取消选区</button>
