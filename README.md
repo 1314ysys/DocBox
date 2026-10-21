@@ -495,3 +495,11 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 ## License
 
 MIT
+
+## 许可证
+
+本项目以 **MIT License** 发布，全文见 [LICENSE](LICENSE)。第三方组件（PDF.js、SheetJS、sharp、Stirling-PDF、miniPaint、语音模型等）的许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 免责声明
+
+DocBox 只在本地/自有服务器运行，不提供任何第三方内容源。视频解析功能仅用于处理你有权访问的公开链接，使用时请遵守目标网站条款与当地法律法规。
