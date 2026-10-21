@@ -436,3 +436,37 @@ podman exec docbox mariadb-dump -u root -proot docbox > docbox-db-backup.sql
 | 容器内浏览器起不来 | 确认启动参数含 `--no-sandbox --disable-dev-shm-usage`（Linux 已自动加） |
 | 抓不到 m3u8 | 站点要登录/真人验证/DRM；把浏览器换成 Chrome 或提供 Cookie |
 | 内存吃紧 | 每次嗅探一个浏览器进程（100–200MB），批量任务并发 2，可用 `DOCBOX_VIDEO_PARALLEL=1` 降并发 |
+
+
+---
+
+## 16. 0.4.1：成品保留策略与定时清理
+
+### 16.1 机制
+
+- 模块：`src/lib/retention.mjs`；设置项 `settings.outputs_retention_hours`（`0` = 永久保存，默认 24，上限 8760）；
+- 定时：`startRetentionTimer()` 在 `server.mjs` 启动时调用，**每 30 分钟**跑一次，启动后 90 秒先跑一次；
+- 清理对象：
+  1. `OUTPUT_DIR`（成品，按文件 mtime；删空目录）；
+  2. `TMP_DIR` 下 `video-*` / `video-task-*` / `hls-*` / `dash-*` / `ytdlp-*` / `direct-*` / `browser-*`；
+  3. `video_tasks` 里已结束且过期的记录（含成品已被删的）。
+- 永久保存（0）时直接返回，不删任何文件。
+
+### 16.2 接口权限
+
+| 接口 | 权限 |
+| --- | --- |
+| `GET /api/settings` | 任意登录用户（只读：保留时长 + 成品用量 + 上次清理） |
+| `POST /api/settings/retention` | 管理员（`{hours, sweep?:false}`） |
+| `POST /api/settings/retention/sweep` | 管理员（立即清理，`{hours?}` 可临时用别的阈值试算） |
+
+### 16.3 界面上在哪改
+
+登录 **root** → 侧边/首页进「账户管理」→ 底部「**成品文件保留策略**」面板：选择保留时长（含「永久保存」和「自定义」）→「保存并立即清理」。
+
+### 16.4 注意
+
+- 清理按**文件 mtime**，不是访问时间；用户反复下载不会延长寿命；
+- `outputs/` 若挂在别的磁盘/卷，注意 `DOCBOX_DATA_DIR` 一致；
+- 想临时不清理：把保留时长设 0；想立刻验证：点「只清理一次」或用 `curl -X POST /api/settings/retention/sweep`；
+- 别把 `OUTPUT_DIR` 直接指到系统目录，清理逻辑会删到保留期外的文件。

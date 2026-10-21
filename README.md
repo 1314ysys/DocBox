@@ -3,7 +3,7 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.4.0` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 内置浏览器嗅探 + 批量下载任务队列**（贴网页链接自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 190 项冒烟断言全通过
+`v0.4.1` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 内置浏览器嗅探 + 批量下载任务队列**（贴网页链接自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 192 项冒烟断言全通过
 
 ---
 
@@ -21,11 +21,26 @@ powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
 sudo bash deploy/install-linux.sh --port 3000
 ```
 
-- 镜像包 `version/0.4.0/docbox-0.4.0-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
+- 镜像包 `version/0.4.1/docbox-0.4.1-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
 - 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
 
 细节、参数与常见问题见 **[deploy/README.md](deploy/README.md)**；  接手/二次开发/发版流程见 **[docs/HANDOVER.md](docs/HANDOVER.md)**（部署 · 改功能 · 发版 · 注意事项 · 故障排查）。
+
+---
+
+## 0.4.1 有什么变化
+
+> 主题：**成品文件不再无限堆积——默认 24 小时自动清理，root 可改成永久保存或任意小时数。**
+
+- 新增 `src/lib/retention.mjs`：保留时长存 `settings` 表（重启不丢），`0 = 永久保存`，默认 **24 小时**；
+- 后台**每 30 分钟**扫一次（启动 90 秒后先跑一次），清理：
+  1. `outputs/` 成品（`/files/...` 指向这里，按文件 mtime）；
+  2. `tmp/` 下视频中间产物（`video-*`、`hls-*`、`dash-*`、`ytdlp-*`、`browser-*` …）；
+  3. 过期且已结束的 `video_tasks` 记录，避免任务列表留下死链；
+- 新接口：`GET /api/settings`（登录可读）、`POST /api/settings/retention`、`POST /api/settings/retention/sweep`（仅管理员）；
+- 「账户管理」页新增**成品文件保留策略**面板：下拉 `永久保存 / 1h / 6h / 12h / 24h / 48h / 72h / 168h / 自定义`，显示成品目录、文件数、占用与上次清理时间，可「保存并立即清理」；
+- 升级提示：默认生效即 24 小时，历史成品会在下次扫描时按 mtime 清掉；要保留就先改成「永久保存」或先备份 `outputs/`。
 
 ---
 

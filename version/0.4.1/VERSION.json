@@ -1,0 +1,38 @@
+{
+  "name": "DocBox",
+  "version": "0.4.1",
+  "channel": "stable",
+  "released": "2026-10-21",
+  "gitTag": "v0.4.1",
+  "summary": "成品/临时文件按保留策略自动清理：默认 24 小时，root 在账户管理里可改为永久保存或任意小时数（settings 表持久化），后台每 30 分钟扫描，同时清理过期视频任务记录。",
+  "counts": {
+    "tools": 89,
+    "suiteTools": 57,
+    "nativeTools": 34,
+    "netToolsClientSide": 16,
+    "smoke": 192
+  },
+  "features": [
+    "保留策略持久化（settings.outputs_retention_hours），0=永久保存，默认 24h",
+    "后台每 30 分钟清理：outputs 成品 + tmp 视频中间产物 + 过期 video_tasks 记录",
+    "GET /api/settings、POST /api/settings/retention、POST /api/settings/retention/sweep（管理员）",
+    "账户管理新增「成品文件保留策略」面板：下拉/自定义小时数、用量与上次清理信息、保存并立即清理"
+  ],
+  "tests": {
+    "smoke": "192 / 192 通过（宿主机）",
+    "default": "默认 hours=24、permanent=false，成品 124 个 / 3.0 MB",
+    "permanent": "设「永久保存」→ 立即清理 removedFiles=0，文件全部保留",
+    "twoHours": "设 2 小时 → 立即删掉 62 个过期成品，新生成文件保留",
+    "validation": "hours=-5 → HTTP 400；普通用户 POST → 403、GET /api/settings → 200",
+    "container": "容器 docbox:0.4.1：health 0.4.1、chromium 155、outputs 目录 /data/outputs、2 小时策略删掉 3 小时前的文件、保留新文件"
+  },
+  "image": {
+    "name": "docbox:0.4.1",
+    "id": "7e733823392c33d059b32bf8661d702d5348d9438ac1e69d7eba91ab0fe4dcc8",
+    "sizeBytes": 4314960384,
+    "sizeGB": 4.31,
+    "tar": "docbox-0.4.1-image.tar",
+    "tarSizeBytes": 4314960384,
+    "tarSha256": "242a7aa5af4a5d6fde9b4c75a6efc7b34d5f8f70697b0f852c1aa616784e3a22"
+  }
+}

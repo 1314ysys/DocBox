@@ -35,6 +35,31 @@ export async function renderAccounts(app) {
         <div class="panel-title"><h2>账户列表</h2><span id="accCount" class="muted"></span></div>
         <div id="accTable" class="acc-wrap"><div class="recent-empty">加载中…</div></div>
       </div>
+      <div class="panel">
+        <div class="panel-title"><h2>成品文件保留策略</h2><span id="retainUsage" class="muted"></span></div>
+        <p class="muted">所有工具产出的成品都放在服务端 <code id="retainDir">outputs</code> 目录（视频解析的 MP4、导出的 PDF/图片等）。默认保留 <b>24 小时</b>，超时由后台每 30 分钟清理一次；设为「永久保存」则不再自动清理。</p>
+        <div class="run-bar">
+          <label class="fld inline"><span>保留时长</span>
+            <select id="retainHours">
+              <option value="0">永久保存（不清理）</option>
+              <option value="1">1 小时</option>
+              <option value="6">6 小时</option>
+              <option value="12">12 小时</option>
+              <option value="24">24 小时（默认）</option>
+              <option value="48">48 小时</option>
+              <option value="72">72 小时（3 天）</option>
+              <option value="168">168 小时（7 天）</option>
+              <option value="custom">自定义…</option>
+            </select>
+          </label>
+          <label class="fld inline" id="retainCustomWrap" hidden><span>小时数</span>
+            <input id="retainCustom" type="number" min="0" step="1" value="24" style="width:110px">
+          </label>
+          <button class="btn btn-primary" id="retainSave">保存并立即清理</button>
+          <button class="btn btn-ghost" id="retainSweep">只清理一次</button>
+          <span class="run-hint" id="retainHint"></span>
+        </div>
+      </div>
     </div>`;
 
   let data = null;
@@ -144,5 +169,86 @@ export async function renderAccounts(app) {
     }
   });
 
+  async function loadRetention() {
+    try {
+      const s = await getJson('/api/settings');
+      const hours = s.retention?.hours ?? 24;
+      const sel = $('#retainHours', view);
+      const known = ['0', '1', '6', '12', '24', '48', '72', '168'];
+      if (known.includes(String(hours))) {
+        sel.value = String(hours);
+        $('#retainCustomWrap', view).hidden = true;
+      } else {
+        sel.value = 'custom';
+        $('#retainCustom', view).value = String(hours);
+        $('#retainCustomWrap', view).hidden = false;
+      }
+      $('#retainDir', view).textContent = s.outputs?.dir ? s.outputs.dir : 'outputs';
+      const used = s.outputs ? (s.outputs.files + ' 个文件 · ' + fmtSize(s.outputs.bytes)) : '';
+      const last = s.lastSweep ? ('上次清理 ' + String(s.lastSweep.at).replace('T', ' ').slice(0, 16) + '（删 ' + s.lastSweep.removedFiles + ' 个）') : '尚未清理过';
+      $('#retainUsage', view).textContent = used + ' · ' + last;
+      $('#retainHint', view).textContent = hours === 0 ? '当前：永久保存' : '当前：保留 ' + hours + ' 小时';
+    } catch (e) {
+      $('#retainHint', view).textContent = e.message;
+    }
+  }
+
+  function fmtSize(n) {
+    const v = Number(n) || 0;
+    if (v < 1024) return v + ' B';
+    if (v < 1024 * 1024) return (v / 1024).toFixed(1) + ' KB';
+    if (v < 1024 * 1024 * 1024) return (v / 1024 / 1024).toFixed(1) + ' MB';
+    return (v / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  }
+
+  function pickHours() {
+    const sel = $('#retainHours', view);
+    if (sel.value === 'custom') return Number($('#retainCustom', view).value);
+    return Number(sel.value);
+  }
+
+  $('#retainHours', view).addEventListener('change', () => {
+    $('#retainCustomWrap', view).hidden = $('#retainHours', view).value !== 'custom';
+  });
+
+  $('#retainSave', view).addEventListener('click', async () => {
+    const btn = $('#retainSave', view);
+    const hours = pickHours();
+    if (!Number.isFinite(hours) || hours < 0) { toast('请填写不小于 0 的小时数', 'error'); return; }
+    setBusy(btn, true, '保存中…');
+    try {
+      const res = await fetch('/api/settings/retention', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ hours }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || '保存失败');
+      toast(json.note || '已保存', 'ok', 5000);
+      await loadRetention();
+    } catch (e) {
+      toast(e.message, 'error', 6000);
+    } finally {
+      setBusy(btn, false, '保存并立即清理');
+    }
+  });
+
+  $('#retainSweep', view).addEventListener('click', async () => {
+    const btn = $('#retainSweep', view);
+    setBusy(btn, true, '清理中…');
+    try {
+      const res = await fetch('/api/settings/retention/sweep', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || '清理失败');
+      toast(json.note || '已清理', 'ok', 5000);
+      await loadRetention();
+    } catch (e) {
+      toast(e.message, 'error', 6000);
+    } finally {
+      setBusy(btn, false, '只清理一次');
+    }
+  });
+
+  await loadRetention();
   await load();
 }

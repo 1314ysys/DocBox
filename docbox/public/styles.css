@@ -1050,3 +1050,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 
 .video-deep { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #475569; margin: 6px 0 2px; cursor: pointer; }
 .video-deep input { accent-color: #0ea5e9; }
+
+/* 账户页：保留策略行内表单 */
+.fld.inline { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.fld.inline > span { font-size: 12.5px; color: #475569; }
+.fld.inline select, .fld.inline input { width: auto; }
