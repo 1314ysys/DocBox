@@ -293,14 +293,35 @@ async function tlsCheck(f) {
   };
 }
 
+// 公共查询接口（rdap.org / crt.sh 等）经常抽风：同一次调用重试两次，成功率明显更高
+async function fetchWithRetry(url, opts = {}, times = 2, gap = 1200) {
+  let lastErr = null;
+  for (let i = 0; i < times; i += 1) {
+    try {
+      const res = await fetch(url, { ...opts, signal: AbortSignal.timeout(opts.timeout || 20000) });
+      if (res.ok) return res;
+      lastErr = new Error('HTTP ' + res.status);
+      if (res.status < 500 && res.status !== 429) throw lastErr; // 4xx 重试没意义
+    } catch (e) {
+      lastErr = e;
+    }
+    if (i < times - 1) await new Promise((r) => setTimeout(r, gap));
+  }
+  throw lastErr || new Error('网络错误');
+}
+
 // ------------------------------------------------------------------ 注册信息
 async function rdap(f) {
   const q = String(f.query || '').trim();
   if (!q) fail('请填写域名或 IP');
   const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(q);
   const url = 'https://rdap.org/' + (isIp ? 'ip/' : 'domain/') + encodeURIComponent(q);
-  const res = await fetch(url, { headers: { accept: 'application/rdap+json', 'user-agent': 'DocBox/0.2.0 (+local)' }, signal: AbortSignal.timeout(20000) });
-  if (!res.ok) fail('RDAP 查询失败（HTTP ' + res.status + '），请确认域名拼写或网络');
+  let res;
+  try {
+    res = await fetchWithRetry(url, { headers: { accept: 'application/rdap+json', 'user-agent': 'DocBox/0.2.0 (+local)' }, timeout: 20000 }, 3, 1000);
+  } catch (e) {
+    fail('RDAP 服务暂时不可达（' + e.message + '），请稍后重试；域名拼写错误也会查不到');
+  }
   const json = await res.json();
   const events = (json.events || []).map((e) => ({ action: e.eventAction, date: e.eventDate }));
   const nameservers = (json.nameservers || []).map((n) => n.ldhName).filter(Boolean);
@@ -461,16 +482,54 @@ async function localNetwork() {
   };
 }
 
-async function subdomains(f) {
-  const domain = stripHost(f.domain);
-  if (!domain) fail('请填写域名');
-  const res = await fetch('https://crt.sh/?q=' + encodeURIComponent('%25.' + domain) + '&output=json', { signal: AbortSignal.timeout(20000), headers: { accept: 'application/json' } });
-  if (!res.ok) fail('crt.sh 查询失败（HTTP ' + res.status + '）');
+// crt.sh：证书透明度日志，最权威但经常 502/超时
+async function fromCrtSh(domain) {
+  const res = await fetchWithRetry('https://crt.sh/?q=' + encodeURIComponent('%25.' + domain) + '&output=json', { timeout: 20000, headers: { accept: 'application/json' } }, 2, 1500);
+  if (!res.ok) throw new Error('crt.sh HTTP ' + res.status);
   const rows = await res.json();
   const set = new Set();
   for (const r of rows) for (const n of String(r.name_value || '').split(/\n/)) { const v = n.trim().toLowerCase(); if (v && !v.startsWith('*')) set.add(v); }
-  const list = [...set].sort().slice(0, 300);
-  return { data: { domain, count: set.size, subdomains: list, warning: WARN }, note: `${domain}：发现 ${set.size} 个子域名` };
+  return set;
+}
+
+// hackertarget：备用源，纯文本 "子域名,IP" 每行一条
+async function fromHackerTarget(domain) {
+  const res = await fetchWithRetry('https://api.hackertarget.com/hostsearch/?q=' + encodeURIComponent(domain), { timeout: 15000, headers: { accept: 'text/plain' } }, 2, 1000);
+  if (!res.ok) throw new Error('hackertarget HTTP ' + res.status);
+  const text = await res.text();
+  if (/error|API count exceeded|no results/i.test(text)) throw new Error('hackertarget：' + text.trim().slice(0, 60));
+  const set = new Set();
+  for (const line of text.split(/\r?\n/)) {
+    const host = line.split(',')[0]?.trim().toLowerCase();
+    if (host && host.includes('.') && !host.startsWith('*')) set.add(host);
+  }
+  return set;
+}
+
+async function subdomains(f) {
+  const domain = stripHost(f.domain);
+  if (!domain) fail('请填写域名');
+  const providers = [
+    { name: 'crt.sh', run: fromCrtSh },
+    { name: 'hackertarget', run: fromHackerTarget },
+  ];
+  const errors = [];
+  for (const provider of providers) {
+    try {
+      const set = await provider.run(domain);
+      if (set.size) {
+        const list = [...set].sort().slice(0, 300);
+        return {
+          data: { domain, source: provider.name, count: set.size, subdomains: list, warning: WARN, fallbacks: errors },
+          note: `${domain}：发现 ${set.size} 个子域名（来源 ${provider.name}）`,
+        };
+      }
+      errors.push(provider.name + '：没有查到记录');
+    } catch (e) {
+      errors.push(provider.name + '：' + e.message);
+    }
+  }
+  fail('子域名查询失败，公共查询接口暂时不可用（' + errors.join('；') + '）。crt.sh 经常 502，稍等一两分钟重试通常就好了');
 }
 
 function headersRecipe(f) {

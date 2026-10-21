@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 /**
- * DocBox 0.1.2 冒烟测试：登录 / 角色 / 模块权限 + 图片 / 证件照 / PDF / 音视频 / 网络安全 / 数据库。
+ * DocBox 冒烟测试：登录 / 角色 / 模块权限 + 图片 / 证件照 / PDF / 音视频 / 网络安全 / 数据库。
  * 用法：node scripts/smoke.mjs [baseUrl]
  * 依赖 docbox/testdata 下的样例文件与本地已启动的 server.mjs（默认账户 root/root）。
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// 期望版本号直接从 package.json 读，避免每次发版都要改测试
+const EXPECT_VERSION = JSON.parse(await fs.readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE = process.argv[2] || 'http://127.0.0.1:3000';
@@ -108,7 +111,7 @@ record('管理员拥有全部模块', (login.payload.user?.modules || []).length
 const me = await getJson('登录态回读', '/api/auth/me');
 record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
 const health = await getJson('健康检查（免登录）', '/api/health');
-record('版本号 0.4.1', health.version === '0.4.1', 0, health.version);
+record('版本号 ' + EXPECT_VERSION, health.version === EXPECT_VERSION, 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
 record('套件 57 + 自研 34 - 重复 2 = 89', app.suiteToolCount === 57 && app.nativeToolCount === 34 && app.toolCount === 89, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');

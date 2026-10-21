@@ -353,6 +353,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .canvas-toolbar .btn-ghost:hover { background: #1c2d4a; }
 .spacer { flex: 1; }
 .crop-box { position: absolute; border: 2px solid #60a5fa; box-shadow: 0 0 0 9999px rgba(2, 6, 23, .58); pointer-events: none; z-index: 3; }
+.crop-bar { position: absolute; z-index: 5; display: flex; gap: 6px; padding: 6px; border-radius: 10px;
+  background: rgba(15, 23, 42, .92); box-shadow: 0 10px 30px -8px rgba(0, 0, 0, .75); backdrop-filter: blur(2px); }
+.crop-bar .btn { white-space: nowrap; }
+.crop-bar-size { align-self: center; padding: 0 6px; font-size: 12px; color: #e2e8f0; opacity: .9; }
+.muted.small { font-size: 12px; line-height: 1.5; margin: 8px 0 0; opacity: .8; }
 
 .editor-panel { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 18px 18px; max-height: calc(70vh + 51px); overflow: auto; }
 .ep-group { padding: 14px 0; border-bottom: 1px solid var(--line); }

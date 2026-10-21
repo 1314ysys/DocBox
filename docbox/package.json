@@ -15,7 +15,8 @@
     "prestart": "node scripts/fix-sharp.mjs",
     "predev": "node scripts/fix-sharp.mjs",
     "tools:fixtures": "node scripts/tools-fixtures.mjs",
-    "tools:check": "node scripts/tools-check.mjs"
+    "tools:check": "node scripts/tools-check.mjs",
+    "ui:check": "node scripts/ui-check.mjs"
   },
   "keywords": [
     "pdf",

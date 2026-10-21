@@ -57,9 +57,15 @@ export function renderEditor() {
   $('#edQuality').oninput = () => { $('#edQualityV').textContent = $('#edQuality').value + '%'; };
   $('#edExport').onclick = exportImage;
 
-  $('#edZoomIn').onclick = () => zoomAt(ed.zoom * 1.25, null);
-  $('#edZoomOut').onclick = () => zoomAt(ed.zoom / 1.25, null);
-  $('#edZoomFit').onclick = () => { ed.zoom = 1; applyZoom(); fitScroll(); };
+  const bind = (id, fn) => { const el = $('#' + id); if (el) el.onclick = fn; };
+  bind('edZoomIn', () => zoomAt(ed.zoom * 1.25, null));
+  bind('edZoomOut', () => zoomAt(ed.zoom / 1.25, null));
+  bind('edZoomFit', () => { ed.zoom = 1; applyZoom(); fitScroll(); });
+  // 裁剪入口做成三处：画布上方工具栏、选区上的浮动条、右侧面板，避免找不到按钮
+  bind('edToolCrop', applyCrop);
+  bind('edToolCropClear', clearCrop);
+  bind('edCropBarApply', applyCrop);
+  bind('edCropBarCancel', clearCrop);
   bindCropDrag();
 }
 
@@ -101,7 +107,8 @@ function render() {
   canvas.height = ed.current.height;
   canvas.getContext('2d').drawImage(ed.current, 0, 0);
   const maxW = Math.min((wrap.clientWidth || 900) - 36, 1000);
-  const maxH = Math.max(320, window.innerHeight * 0.62);
+  // 用画布容器自身的高度（而不是窗口高度）来算"适应"，能更好地利用可用空间
+  const maxH = Math.max(320, (wrap.clientHeight || Math.round(window.innerHeight * 0.62)) - 36);
   ed.fit = Math.min(maxW / ed.current.width, maxH / ed.current.height, 1) || 1;
   if (ed.zoom > 1) ed.zoom = Math.min(ed.zoom, 12);
   applyZoom();
@@ -162,14 +169,41 @@ function toImagePoint(e) {
 /** 按原图坐标把选区框画到屏幕上 */
 function drawCropBox() {
   const box = $('#edCropBox');
+  const bar = $('#edCropBar');
   if (!box) return;
-  if (!ed.crop || ed.crop.w < 0.5 || ed.crop.h < 0.5) { box.hidden = true; return; }
+  const hasSel = ed.crop && ed.crop.w >= 0.5 && ed.crop.h >= 0.5;
+  if (!hasSel) {
+    box.hidden = true;
+    if (bar) bar.hidden = true;
+    return;
+  }
   const s = ed.cssScale || 1;
+  const left = Math.round(ed.crop.x * s);
+  const top = Math.round(ed.crop.y * s);
+  const width = Math.round(ed.crop.w * s);
+  const height = Math.round(ed.crop.h * s);
   box.hidden = false;
-  box.style.left = Math.round(ed.crop.x * s) + 'px';
-  box.style.top = Math.round(ed.crop.y * s) + 'px';
-  box.style.width = Math.round(ed.crop.w * s) + 'px';
-  box.style.height = Math.round(ed.crop.h * s) + 'px';
+  box.style.left = left + 'px';
+  box.style.top = top + 'px';
+  box.style.width = width + 'px';
+  box.style.height = height + 'px';
+  if (bar) {
+    // 浮动条贴在选区右下角，贴着画布边缘时自动翻到另一侧
+    bar.hidden = false;
+    const sizeEl = $('#edCropBarSize');
+    if (sizeEl) sizeEl.textContent = Math.round(ed.crop.w) + ' × ' + Math.round(ed.crop.h) + ' px';
+    const stageW = $('#edStage')?.clientWidth || 0;
+    const stageH = $('#edStage')?.clientHeight || 0;
+    const barW = bar.offsetWidth || 190;
+    const barH = bar.offsetHeight || 40;
+    let barLeft = left + width - barW;
+    let barTop = top + height + 8;
+    if (barTop + barH > stageH) barTop = Math.max(4, top - barH - 8);
+    if (barLeft < 4) barLeft = 4;
+    if (barLeft + barW > stageW) barLeft = Math.max(4, stageW - barW - 4);
+    bar.style.left = Math.round(barLeft) + 'px';
+    bar.style.top = Math.round(barTop) + 'px';
+  }
 }
 
 function snapshot() {
@@ -326,6 +360,10 @@ function bindCropDrag() {
   const box = $('#edCropBox');
   const canvas = $('#edCanvas');
   const wrap = $('#edWrap');
+  if (!canvas || !wrap) return;
+  // 视图可以反复进入：监听器只绑一次，否则滚轮/键盘会被重复触发
+  if (wrap.dataset.cropBound === '1') return;
+  wrap.dataset.cropBound = '1';
   let mode = null;
   let start = null;
   let startScroll = null;
@@ -337,7 +375,7 @@ function bindCropDrag() {
     if (!ed.current) return;
     const isMiddle = e.button === 1;
     const isRight = e.button === 2;
-    const isTouchSelect = e.button === 0 && e.pointerType !== 'mouse';
+    const isLeft = e.button === 0;   // 左键/触摸也能拉选区，和右键等价
 
     if (isMiddle) {
       // 中键（滚轮键）按住拖动 = 平移
@@ -349,11 +387,22 @@ function bindCropDrag() {
       try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
       return;
     }
-    if (!isRight && !isTouchSelect) return;   // 左键不画选区，避免误操作
+    if (!isLeft && !isRight) return;
 
     e.preventDefault();
-    mode = 'select';
     const p = toImagePoint(e);
+    // 点在已有选区里 = 拖动整个选区（不然会误清掉选区，双击也就无法生效）
+    if (ed.crop && ed.crop.w > 2 && ed.crop.h > 2
+      && p.x >= ed.crop.x && p.x <= ed.crop.x + ed.crop.w
+      && p.y >= ed.crop.y && p.y <= ed.crop.y + ed.crop.h) {
+      mode = 'move';
+      start = p;
+      startScroll = { x: ed.crop.x, y: ed.crop.y, w: ed.crop.w, h: ed.crop.h };
+      wrap.classList.add('selecting');
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      return;
+    }
+    mode = 'select';
     start = p;
     ed.crop = { x: p.x, y: p.y, w: 0, h: 0 };
     wrap.classList.add('selecting');
@@ -366,6 +415,15 @@ function bindCropDrag() {
     if (mode === 'pan') {
       wrap.scrollLeft = startScroll.left - (e.clientX - start.x);
       wrap.scrollTop = startScroll.top - (e.clientY - start.y);
+      return;
+    }
+    if (mode === 'move') {
+      const dx = toImagePoint(e).x - start.x;
+      const dy = toImagePoint(e).y - start.y;
+      const nx = Math.max(0, Math.min(ed.current.width - startScroll.w, startScroll.x + dx));
+      const ny = Math.max(0, Math.min(ed.current.height - startScroll.h, startScroll.y + dy));
+      ed.crop = { x: nx, y: ny, w: startScroll.w, h: startScroll.h };
+      drawCropBox();
       return;
     }
     const p = toImagePoint(e);
@@ -393,6 +451,26 @@ function bindCropDrag() {
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
+
+  // 双击选区 = 直接裁剪
+  canvas.addEventListener('dblclick', (e) => {
+    if (!ed.current || !ed.crop) return;
+    const p = toImagePoint(e);
+    const c = ed.crop;
+    if (p.x >= c.x && p.x <= c.x + c.w && p.y >= c.y && p.y <= c.y + c.h) {
+      e.preventDefault();
+      applyCrop();
+    }
+  });
+
+  // 键盘：Esc 取消选区，Ctrl/⌘+Enter 应用裁剪
+  window.addEventListener('keydown', (e) => {
+    if (!ed?.current || !ed.crop) return;
+    const tag = (e.target?.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+    if (e.key === 'Escape') { e.preventDefault(); clearCrop(); }
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); applyCrop(); }
+  });
 
   // 滚轮 = 自由缩放（以光标为中心），按住中键拖动 = 平移
   wrap.addEventListener('wheel', (e) => {
@@ -438,6 +516,11 @@ function clearCrop() {
 
 function exportImage() {
   if (!ed.current) return;
+  // 有未应用的选区就先裁掉，否则用户会觉得"下载的还是整张图"
+  if (ed.crop && ed.crop.w >= 4 && ed.crop.h >= 4) {
+    toast('检测到未应用的选区，已先裁剪再导出');
+    applyCrop();
+  }
   const format = $('#edFormat').value;
   const quality = Number($('#edQuality').value) / 100;
   const ext = format === 'image/jpeg' ? 'jpg' : format === 'image/webp' ? 'webp' : 'png';

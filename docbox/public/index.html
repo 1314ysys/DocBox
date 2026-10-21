@@ -166,6 +166,11 @@
                 <div id="edStage" class="canvas-stage">
                   <canvas id="edCanvas"></canvas>
                   <div id="edCropBox" class="crop-box" hidden></div>
+                  <div id="edCropBar" class="crop-bar" hidden>
+                    <span id="edCropBarSize" class="crop-bar-size"></span>
+                    <button type="button" class="btn btn-primary btn-sm" id="edCropBarApply">✓ 应用裁剪</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="edCropBarCancel">✕ 取消</button>
+                  </div>
                 </div>
               </div>
               <div id="edEmpty" class="canvas-empty">
@@ -185,6 +190,8 @@
                 <button class="btn btn-ghost btn-sm" id="edZoomFit" title="适应窗口"><span id="edZoomVal">适应</span></button>
                 <button class="btn btn-ghost btn-sm" id="edZoomIn" title="放大">＋</button>
               </div>
+              <button class="btn btn-soft btn-sm" id="edToolCrop" title="把选区裁下来（Ctrl+Enter）">✂ 应用裁剪</button>
+              <button class="btn btn-ghost btn-sm" id="edToolCropClear" title="取消选区（Esc）">取消选区</button>
               <button class="btn btn-ghost btn-sm" id="edUndo" disabled>撤销</button>
               <button class="btn btn-ghost btn-sm" id="edReset" disabled>重置</button>
               <button class="btn btn-ghost btn-sm" id="edChange">更换图片</button>
@@ -201,11 +208,12 @@
               </div>
             </div>
             <div class="ep-group">
-              <h4>裁剪 <small>在画布上按住<b>右键</b>拖出选区（滚轮缩放，中键平移）</small></h4>
+              <h4>裁剪 <small>在画布上拖出选区（左键或<b>右键</b>都行）→ 点「应用裁剪」或双击选区</small></h4>
               <div class="btn-row">
-                <button class="btn btn-soft" id="edCropApply">裁剪选区</button>
+                <button class="btn btn-primary" id="edCropApply">应用裁剪选区</button>
                 <button class="btn btn-ghost" id="edCropClear">取消选区</button>
               </div>
+              <p class="muted small">滚轮缩放，中键拖拽平移；Esc 取消选区，Ctrl+Enter 应用裁剪。</p>
             </div>
             <div class="ep-group">
               <h4>尺寸</h4>
