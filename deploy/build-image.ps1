@@ -6,7 +6,7 @@
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-  [string]$Tag = "docbox:0.4.1",
+  [string]$Tag = "docbox:0.4.4",
   [switch]$SkipModels,
   [switch]$NoCache,
   [string]$Dns = "223.5.5.5,119.29.29.29"
