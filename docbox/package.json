@@ -1,6 +1,6 @@
 {
   "name": "docbox",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "本地文档与图像工作台：全类型文件预览、账户角色与模块授权、15 项文档能力、23 项原生 PDF、18 项音视频、16 项浏览器本机发起的网络体检、SSH/Telnet 网页终端、离线 OCR（中英混排 + 条码/二维码）与 Whisper 转写、视频网站解析下载。",
   "main": "server.mjs",
   "type": "module",

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { ah } from '../lib/async.mjs';
 import { TMP_DIR } from '../config.mjs';
 import { resolveSource, download, ytdlpStatus, installYtdlp } from '../lib/video.mjs';
+import { browserStatus } from '../lib/browser.mjs';
 import { createTasks, listTasks, getTask, cancelTask, retryTask, removeTask, clearTasks } from '../lib/video-tasks.mjs';
 import { logJob } from '../lib/track.mjs';
 import { sendResult } from '../lib/files.mjs';
@@ -17,11 +18,18 @@ videoRouter.post('/api/video/ytdlp/install', ah(async (_req, res) => {
   res.json({ ok: r.ok, data: r, note: r.ok ? 'yt-dlp ' + (r.version || '') + ' 安装完成（' + r.via + '）' : '安装失败：' + ((r.steps || []).map((s) => s.via + ':' + s.detail).join(' | ') || '') });
 }));
 
+videoRouter.get('/api/video/browser', ah(async (_req, res) => {
+  const b = await browserStatus(true);
+  res.json({ ok: true, browser: b, note: b.available ? '内置浏览器可用：' + b.name : b.hint });
+}));
+
 videoRouter.get('/api/video/status', ah(async (_req, res) => {
   const ytdlp = await ytdlpStatus(true);
+  const browser = await browserStatus();
   res.json({
     ok: true,
     ytdlp,
+    browser,
     note: ytdlp.available
       ? 'yt-dlp ' + ytdlp.version + ' 可用（B 站 / YouTube / 爱奇艺 / 腾讯 等）；m3u8 一律走内置 HLS 下载器'
       : '未检测到 yt-dlp，支持网页 m3u8 抓取 + m3u8 / 直链下载',
@@ -32,7 +40,8 @@ videoRouter.get('/api/video/status', ah(async (_req, res) => {
 videoRouter.post('/api/video/probe', ah(async (req, res) => {
   const url = String(req.body?.url || '').trim();
   if (!isUrl(url)) return res.status(400).json({ error: '请填写完整的 http(s) 视频链接' });
-  const info = await resolveSource(url);
+  const deep = req.body?.deep !== false;
+  const info = await resolveSource(url, { deep });
   logJob(req, { suite: 'video', tool: 'video-probe', note: info.title || info.site, status: 'ok' });
   res.json({ ok: true, data: info, note: info.title || info.site || '解析完成' });
 }));
@@ -62,7 +71,7 @@ videoRouter.post('/api/video/batch', ah(async (req, res) => {
   const urls = list.map((u) => String(u).trim()).filter(isUrl);
   if (!urls.length) return res.status(400).json({ error: '请至少填写一条 http(s) 链接' });
   if (urls.length > 50) return res.status(400).json({ error: '一次最多 50 条，请分批添加' });
-  const created = createTasks(urls, { format: req.body?.format });
+  const created = createTasks(urls, { format: req.body?.format, deep: req.body?.deep !== false });
   logJob(req, { suite: 'video', tool: 'video-batch', note: urls.length + ' 条', status: 'ok' });
   res.json({ ok: true, created, count: created.length, note: '已加入下载队列（' + created.length + ' 条），可离开页面后台继续' });
 }));

@@ -400,3 +400,39 @@ podman exec docbox mariadb-dump -u root -proot docbox > docbox-db-backup.sql
 2. 返回统一结构：`{kind:'site', engine, title, thumbnail, duration, formats:[{id,type:'hls'|'file'|'dash',url,audioUrl,height,note,headers}], streams}`；
 3. `type:'dash'` 记得给 `audioUrl`，下载会自动合成；
 4. 需要登录态的站点，把 Cookie 头放进 `headers`（参考 B 站 `DOCBOX_BILI_COOKIE`）。
+
+
+---
+
+## 15. 0.4.0：内置浏览器嗅探（抓 JS 动态 m3u8）
+
+### 15.1 为什么需要
+
+静态 `fetch` 只能看到 HTML；大量站点用 hls.js / 接口下发的地址播放，HTML 里没有 m3u8。用无头浏览器真实跑一遍页面、监听 Network 才能拿到。
+
+### 15.2 实现（src/lib/browser.mjs）
+
+- 启动：`<browser> --headless=new --remote-debugging-port=0 --user-data-dir=<临时目录> URL`；
+- 等 `DevToolsActivePort` 文件拿到端口 → `GET /json/list` 找 page target → 连它的 WebSocket（CDP）；
+- `Network.enable` + `Page.enable` + `Runtime.enable`；监听 `Network.requestWillBeSent`（含请求头）与 `Network.responseReceived`（状态/类型）；
+- 每 1.5 秒尝试 `document.querySelectorAll('video').forEach(v=>{v.muted=true;v.play()})` 并滚动页面；
+- 结束前 `Runtime.evaluate document.title`、`Network.getCookies` 取 Cookie；
+- 排序：HTTP 200 优先、`master` 优先、后出现优先；最多取前 3 个逐个 `resolvePlaylist` 验证可播；
+- 收尾：`Browser.close`/kill 子进程 + 删临时 profile。
+
+### 15.3 配置
+
+| 变量 | 说明 |
+| --- | --- |
+| `DOCBOX_CHROME` | 浏览器可执行文件路径（容器里是 `/usr/bin/chromium`） |
+| `deep`（请求参数/前端勾选） | true：嗅探耐心 20s + 多次触发播放；false：15s |
+| `sniff`（内部选项） | false 可完全关闭浏览器嗅探（脚本调用时用） |
+
+### 15.4 排查
+
+| 现象 | 处理 |
+| --- | --- |
+| `内置浏览器嗅探: 没有找到 Edge/Chrome/Chromium` | 装浏览器或设置 `DOCBOX_CHROME`；容器内确认 `chromium --version` |
+| 容器内浏览器起不来 | 确认启动参数含 `--no-sandbox --disable-dev-shm-usage`（Linux 已自动加） |
+| 抓不到 m3u8 | 站点要登录/真人验证/DRM；把浏览器换成 Chrome 或提供 Cookie |
+| 内存吃紧 | 每次嗅探一个浏览器进程（100–200MB），批量任务并发 2，可用 `DOCBOX_VIDEO_PARALLEL=1` 降并发 |

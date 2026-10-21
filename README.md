@@ -3,7 +3,7 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.3.2` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 批量下载任务队列**（网页自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 189 项冒烟断言全通过
+`v0.4.0` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 内置浏览器嗅探 + 批量下载任务队列**（贴网页链接自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 190 项冒烟断言全通过
 
 ---
 
@@ -21,11 +21,28 @@ powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
 sudo bash deploy/install-linux.sh --port 3000
 ```
 
-- 镜像包 `version/0.3.2/docbox-0.3.2-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
+- 镜像包 `version/0.4.0/docbox-0.4.0-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
 - 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
 
 细节、参数与常见问题见 **[deploy/README.md](deploy/README.md)**；  接手/二次开发/发版流程见 **[docs/HANDOVER.md](docs/HANDOVER.md)**（部署 · 改功能 · 发版 · 注意事项 · 故障排查）。
+
+---
+
+## 0.4.0 有什么变化
+
+> 主题：**贴个网页链接就行——后台内置浏览器打开页面，自动嗅探 m3u8 再解析下载。**
+
+- 新增 `src/lib/browser.mjs`：**零新增依赖**的无头浏览器嗅探（Node + 已有的 `ws` 直接说 Chrome DevTools Protocol）；
+  - 自动找内核：`DOCBOX_CHROME` → Windows Edge/Chrome → Linux chromium → macOS Chrome；
+  - 打开页面后监听 Network，抓所有 `.m3u8`（带状态码与请求头），并**带出页面 Cookie**；
+  - 自动静音 + `play()` + 轻滚页面，触发那些「点了播放才开始取流」的站点；
+  - 抓到的 m3u8 交给自带 HLS 引擎枚举码率，后续分片下载自动携带 **Referer + Cookie**。
+- 解析顺序补上第 5 步兜底：m3u8 直链 → 站点内置（B 站）→ yt-dlp → 网页正则 → **内置浏览器嗅探**；
+- 新增接口 `GET /api/video/browser`；`probe`/`batch` 支持 `deep`（20 秒深度嗅探）；前端加勾选框、浏览器徽标，解析过程里能看到嗅探的请求数与耗时；
+- 镜像内装 `chromium` 并设 `DOCBOX_CHROME=/usr/bin/chromium`（Linux 自动 `--no-sandbox`）。
+
+实测：本地「JS 动态取流」页面静态抓取 0 命中，嗅探 2.6 秒抓到 m3u8，整条 probe→download 6.1 秒、产出 63 KB MP4。
 
 ---
 

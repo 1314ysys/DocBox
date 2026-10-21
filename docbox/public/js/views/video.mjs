@@ -34,6 +34,7 @@ export function renderVideo() {
           '<input class="input" id="videoUrl" placeholder="https://www.bilibili.com/video/BV... 或 https://..../index.m3u8" autocomplete="off">' +
           '<button class="btn btn-primary" id="videoParse">解析</button>' +
         '</div>' +
+        '<label class="video-deep"><input type="checkbox" id="videoDeep" checked> 抓不到时用内置浏览器深度嗅探（后台无头 Edge/Chrome，最多 20 秒）</label>' +
         '<p class="muted" id="videoHint">解析顺序：站内 m3u8（yt-dlp 或页面抓取）→ 码率列表 → 内置 HLS 下载器。</p>' +
         '<div class="video-result" id="videoResult" hidden></div>' +
       '</div>' +
@@ -69,11 +70,13 @@ function refreshEngine(view) {
   getJson('/api/video/status').then((data) => {
     const el = $('[data-engine]', view);
     if (!el) return;
+    const b = data.browser || {};
+    const bTag = b.available ? '<span class="tag ok">内置浏览器 ' + esc(b.name || '') + '</span>' : '<span class="tag warn">无内置浏览器</span>';
     if (data.ytdlp?.available) {
-      el.innerHTML = '<span class="tag ok">yt-dlp ' + esc(data.ytdlp.version) + '</span> <span class="tag">HLS 引擎</span>';
+      el.innerHTML = '<span class="tag ok">yt-dlp ' + esc(data.ytdlp.version) + '</span> <span class="tag">HLS 引擎</span> ' + bTag;
       return;
     }
-    el.innerHTML = '<span class="tag warn">未检测到 yt-dlp</span> ' +
+    el.innerHTML = '<span class="tag warn">未检测到 yt-dlp</span> ' + bTag + ' ' +
       '<button class="btn btn-sm btn-primary" id="videoInstallYtdlp">一键安装 yt-dlp</button>';
     const btn = $('#videoInstallYtdlp', view);
     if (btn) btn.addEventListener('click', async () => {
@@ -101,7 +104,8 @@ async function parseOne(view) {
   hint.textContent = '正在解析（网页 → m3u8）…';
   box.hidden = true;
   try {
-    const res = await postJson('/api/video/probe', { url });
+    const deep = $('#videoDeep', view) ? $('#videoDeep', view).checked : true;
+  const res = await postJson('/api/video/probe', { url, deep });
     st.info = res.data;
     renderInfo(box, res.data, url);
     box.hidden = false;
@@ -175,7 +179,8 @@ function renderInfo(box, info, sourceUrl) {
   if (qBtn) {
     qBtn.addEventListener('click', async () => {
       try {
-        await postJson('/api/video/batch', { urls: [sourceUrl] });
+        const deep = $('#videoDeep', $('#view-video')) ? $('#videoDeep', $('#view-video')).checked : true;
+        await postJson('/api/video/batch', { urls: [sourceUrl], deep });
         toast('已加入后台队列');
         refreshTasks($('#view-video'));
       } catch (e) { toast(e.message, 'error', 6000); }
@@ -200,7 +205,8 @@ async function addBatch(view) {
   const btn = $('#videoBatch', view);
   setBusy(btn, true, '提交中…');
   try {
-    const res = await postJson('/api/video/batch', { urls });
+    const deep = $('#videoDeep', view) ? $('#videoDeep', view).checked : true;
+    const res = await postJson('/api/video/batch', { urls, deep });
     toast('已加入 ' + res.count + ' 个下载任务');
     $('#videoUrls', view).value = '';
     refreshTasks(view);

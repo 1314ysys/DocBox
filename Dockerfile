@@ -1,6 +1,6 @@
-# DocBox 0.3.2 · 单镜像（Node 应用 + MariaDB + FFmpeg + 中文 OCR/语音模型 + yt-dlp）
-# 构建：podman build -t docbox:0.3.2 -f Dockerfile .
-# 运行：podman run -d --name docbox -p 3000:3000 -v docbox-data:/data docbox:0.3.2
+# DocBox 0.4.0 · 单镜像（Node 应用 + MariaDB + FFmpeg + 中文 OCR/语音模型 + yt-dlp）
+# 构建：podman build -t docbox:0.4.0 -f Dockerfile .
+# 运行：podman run -d --name docbox -p 3000:3000 -v docbox-data:/data docbox:0.4.0
 FROM docker.m.daocloud.io/library/node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg traceroute iproute2 fonts-wqy-zenhei fontconfig \
       python3 python3-pip python3-numpy python3-fonttools python-is-python3 \
       mariadb-server mariadb-client \
+      chromium \
       ca-certificates curl tini tzdata xz-utils \
     && fc-cache -f >/dev/null 2>&1 \
     && rm -rf /var/lib/apt/lists/*
@@ -36,6 +37,8 @@ RUN mkdir -p /usr/share/fonts/truetype/docbox \
     && fc-cache -f >/dev/null 2>&1
 
 ENV DOCBOX_FONT=/usr/share/fonts/truetype/docbox/DocBoxCJK.ttf
+# 内置浏览器嗅探：容器内用 chromium（页面里 JS 动态取 m3u8 时靠它抓）
+ENV DOCBOX_CHROME=/usr/bin/chromium
 
 WORKDIR /app
 

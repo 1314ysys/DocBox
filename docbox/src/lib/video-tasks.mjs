@@ -35,6 +35,7 @@ function publicTask(t) {
     bytes: t.bytes || 0,
     total: t.total || 0,
     format: t.format || '',
+    deep: t.deep !== false,
     file: t.file || null,
     error: t.error || '',
     createdAt: t.createdAt,
@@ -77,6 +78,7 @@ export function createTasks(urls, opts = {}) {
       bytes: 0,
       total: 0,
       format: String(opts.format || ''),
+      deep: opts.deep !== false,
       file: null,
       error: '',
       createdAt: nowIso(),
@@ -108,7 +110,7 @@ async function runTask(t) {
   const workdir = path.join(TMP_DIR, 'video-task-' + t.id);
   try {
     touch(t, { status: 'resolving', progress: 2, error: '' });
-    const info = await resolveSource(t.url, { signal });
+    const info = await resolveSource(t.url, { signal, deep: t.deep !== false });
     if (signal.aborted) throw new Error('已取消');
     t.site = info.site || '';
     t.title = info.title || '';

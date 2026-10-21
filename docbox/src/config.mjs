@@ -20,7 +20,7 @@ export const CACHE_DIR = DATA_DIR ? path.join(DATA_DIR, 'cache') : path.join(DOC
 
 export const PORT = Number(process.env.DOCBOX_PORT) || 3000;
 export const HOST = process.env.DOCBOX_HOST || '127.0.0.1';
-export const APP_VERSION = '0.3.2';
+export const APP_VERSION = '0.4.0';
 
 // ---------------------------------------------------------------- 本地数据库
 export const DB = {

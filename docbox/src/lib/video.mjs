@@ -17,6 +17,7 @@ import { spawn } from 'node:child_process';
 import { FFMPEG, DOCBOX_DIR, ROOT } from '../config.mjs';
 import { isPlaylist, resolvePlaylist, downloadSegments, concatToMp4, UA } from './hls.mjs';
 import { resolveBySite } from './sites.mjs';
+import { sniffMedia, browserStatus } from './browser.mjs';
 
 let ytdlpCache;
 
@@ -233,10 +234,54 @@ function hlsFormats(parsed, headers) {
   }];
 }
 
+/** 内置浏览器嗅探：无头 Edge/Chrome 打开页面，抓 Network 里的 m3u8（含 Cookie/Referer） */
+async function sniffStep(url, info, diag, { preferHeight = 0, signal, deep = false } = {}) {
+  try {
+    const st = await browserStatus();
+    if (!st.available) {
+      diag.steps.push({ step: '内置浏览器嗅探', ok: false, detail: st.hint });
+      return null;
+    }
+    const r = await sniffMedia(url, { timeoutMs: deep ? 20000 : 15000 });
+    diag.steps.push({
+      step: '内置浏览器嗅探',
+      ok: Boolean(r.m3u8 && r.m3u8.length),
+      detail: (r.title ? '《' + String(r.title).slice(0, 20) + '》 · ' : '') + '请求 ' + (r.requests || 0) + ' 个 · ' + ((r.m3u8 || []).length) + ' 个 m3u8 · ' + (r.ms || 0) + 'ms' + (r.reason ? ' · ' + r.reason : ''),
+    });
+    if (!r.m3u8 || !r.m3u8.length) return null;
+
+    const baseHeaders = { referer: url };
+    if (r.cookie) baseHeaders.cookie = r.cookie;
+    if (!info.title && r.title) info.title = r.title;
+
+    for (const cand of r.m3u8.slice(0, 3)) {
+      try {
+        const headers = { ...baseHeaders, ...(cand.headers && cand.headers.referer ? { referer: cand.headers.referer } : {}) };
+        const parsed = await resolvePlaylist(cand.url, preferHeight, signal, headers);
+        info.kind = 'browser';
+        info.engine = 'builtin-browser';
+        info.manifest = cand.url;
+        info.headers = headers;
+        info.formats = hlsFormats({ ...parsed, url: cand.url }, headers);
+        info.streams = info.formats.map((f) => ({ type: 'hls', url: f.url, label: f.note }));
+        info.engine = 'builtin-browser';
+        diag.steps.push({ step: '解析浏览器抓到的 m3u8', ok: true, detail: info.formats.length + ' 个码率 · ' + cand.url.slice(-60) });
+        return info;
+      } catch (e) {
+        diag.steps.push({ step: '解析浏览器抓到的 m3u8', ok: false, detail: String((e && e.message) || e).slice(0, 120) });
+      }
+    }
+    return null;
+  } catch (e) {
+    diag.steps.push({ step: '内置浏览器嗅探', ok: false, detail: String((e && e.message) || e).slice(0, 140) });
+    return null;
+  }
+}
+
 /**
- * 统一解析：站点内置 -> yt-dlp -> 网页抓取
+ * 统一解析：站点内置 -> （深度）内置浏览器 -> yt-dlp -> 网页抓取 -> 内置浏览器兜底
  */
-export async function resolveSource(url, { preferHeight = 0, signal, depth = 0 } = {}) {
+export async function resolveSource(url, { preferHeight = 0, signal, depth = 0, deep = false, sniff = true } = {}) {
   const info = {
     url, site: siteHint(url), title: '', thumbnail: '', duration: null, uploader: '',
     kind: 'unknown', engine: '', formats: [], streams: [], ytdlp: await ytdlpStatus(),
@@ -405,10 +450,16 @@ export async function resolveSource(url, { preferHeight = 0, signal, depth = 0 }
     return info;
   }
 
+  // 兜底：内置浏览器嗅探（默认开启，可 sniff:false 关闭）
+  if (sniff !== false) {
+    const hit = await sniffStep(url, info, diag, { preferHeight, signal, deep });
+    if (hit) return hit;
+  }
+
   const missing = [];
   if (!info.ytdlp.available) missing.push('未安装 yt-dlp（请在页面点「一键安装 yt-dlp」，或执行 ' + PY + ' -m pip install -U yt-dlp）');
   else if (info.ytdlpError) missing.push('yt-dlp 解析失败：' + info.ytdlpError.slice(0, 160));
-  missing.push('网页里没有直接出现 m3u8 / mp4 地址（站点用 JS 动态取流、需要登录或地区解锁时属于正常情况）');
+  missing.push('网页与内置浏览器里都没有出现 m3u8 / mp4（站点可能需要登录、真人验证或地区解锁）');
   info.reason = missing.join('；');
   return info;
 }

@@ -1,0 +1,38 @@
+{
+  "name": "DocBox",
+  "version": "0.4.0",
+  "channel": "stable",
+  "released": "2026-10-21",
+  "gitTag": "v0.4.0",
+  "summary": "新增内置无头浏览器嗅探（CDP，无新依赖）：贴网页链接即可让后台浏览器打开页面、抓 Network 里的 m3u8（含 Referer/Cookie）并自动解析下载；解析顺序补第 5 步兜底。",
+  "counts": {
+    "tools": 89,
+    "suiteTools": 57,
+    "nativeTools": 34,
+    "netToolsClientSide": 16,
+    "smoke": 190
+  },
+  "features": [
+    "内置无头浏览器嗅探：自动找 Edge/Chrome/Chromium（DOCBOX_CHROME 可覆盖），CDP 监听 Network 抓 .m3u8",
+    "自动触发播放（静音 + play() + 滚动），带出页面 Cookie 与 Referer 供分片下载使用",
+    "解析顺序：m3u8 直链 → 站点内置(B站) → yt-dlp → 网页正则 → 内置浏览器兜底",
+    "GET /api/video/browser；probe/batch 支持 deep（20s 深度嗅探）；前端勾选框 + 状态徽标 + 过程可视化",
+    "容器镜像内置 chromium（DOCBOX_CHROME=/usr/bin/chromium），Linux 自动 --no-sandbox"
+  ],
+  "tests": {
+    "smoke": "190 / 190 通过（宿主机）",
+    "jsDrivenPage": "本地「JS 动态取流」页：静态抓取 0 命中 → 内置浏览器嗅探 2.6s 抓到 1 个 m3u8",
+    "e2e": "宿主机 API：probe kind=browser（6.1s）→ download 63KB MP4（hls 引擎）",
+    "container": "容器 docbox:0.4.0：chromium 155.0.8059.79、browser api available、probe kind=browser（4.6s）、download 63,320 B MP4"
+  },
+  "image": {
+    "name": "docbox:0.4.0",
+    "id": "82f9cb3f82304dd6be97e4054771c4ba206104dc87690bb91bdc410ba6f08651",
+    "sizeBytes": 4314946048,
+    "sizeGB": 4.31,
+    "tar": "docbox-0.4.0-image.tar",
+    "tarSizeBytes": 4314946048,
+    "tarSha256": "48e3ed57bdcfc13348d50df96226b2cb8efb0156e3643033fef562b73423648d",
+    "note": "含 chromium（内置浏览器嗅探），比 0.3.2 大约 +420MB"
+  }
+}

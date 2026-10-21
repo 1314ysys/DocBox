@@ -108,7 +108,7 @@ record('管理员拥有全部模块', (login.payload.user?.modules || []).length
 const me = await getJson('登录态回读', '/api/auth/me');
 record('回读账号一致', me.user?.username === 'root', 0, me.user?.username || '');
 const health = await getJson('健康检查（免登录）', '/api/health');
-record('版本号 0.3.2', health.version === '0.3.2', 0, health.version);
+record('版本号 0.4.0', health.version === '0.4.0', 0, health.version);
 record('MySQL 已连接', Boolean(health.db?.available), 0, health.db?.available ? 'v' + health.db.version : '不可用');
 const app = await getJson('应用清单', '/api/app');
 record('套件 57 + 自研 34 - 重复 2 = 89', app.suiteToolCount === 57 && app.nativeToolCount === 34 && app.toolCount === 89, 0, app.suiteToolCount + ' + ' + app.nativeToolCount + ' = ' + app.toolCount + '（去重后可用）');
@@ -117,6 +117,9 @@ record('网络工具 16 项且全部本机发起', netTools.length === 16, 0, ne
 record('app 携带账户信息', app.auth?.user?.username === 'root', 0, app.auth?.user?.role || '');
 const vst = await getJson('视频解析引擎状态', '/api/video/status');
 record('视频解析接口可用', vst.ok === true && 'ytdlp' in vst, 0, vst.ytdlp?.available ? 'yt-dlp ' + vst.ytdlp.version : '仅 m3u8/直链');
+const bwsRes = await fetch(BASE + '/api/video/browser', { headers: authHeaders() });
+const bwsBody = await bwsRes.json().catch(() => ({}));
+record('内置浏览器嗅探接口', bwsRes.ok && bwsBody.ok === true && typeof bwsBody.browser?.available === 'boolean', 0, bwsBody.browser?.available ? 'browser ' + bwsBody.browser.name : '不可用');
 const ncRes = await fetch(BASE + '/js/core/netclient.mjs');
 const ncText = ncRes.ok ? await ncRes.text() : '';
 record('本机网络探测引擎已内置', ncRes.ok && ncText.includes('浏览器本机') && ncText.includes('runNetClient'), 0, ncText.length + ' bytes');

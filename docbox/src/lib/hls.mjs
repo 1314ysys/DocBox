@@ -52,22 +52,22 @@ function headersFor(url, extra = {}) {
   return { 'user-agent': UA, accept: '*/*', ...(referer ? { referer } : {}), ...extra };
 }
 
-async function fetchText(url, signal) {
-  const res = await fetch(url, { headers: headersFor(url), signal: signal || AbortSignal.timeout(30000) });
+async function fetchText(url, signal, extra) {
+  const res = await fetch(url, { headers: { ...headersFor(url), ...(extra || {}) }, signal: signal || AbortSignal.timeout(30000) });
   if (!res.ok) throw new Error('播放列表请求失败：HTTP ' + res.status);
   return res.text();
 }
 
 /** 取最终媒体播放列表（如果是 master，按码率挑一个子列表） */
-export async function resolvePlaylist(url, preferHeight = 0, signal) {
-  const text = await fetchText(url, signal);
+export async function resolvePlaylist(url, preferHeight = 0, signal, headers) {
+  const text = await fetchText(url, signal, headers);
   let parsed = parsePlaylist(text, url);
   if (!parsed.isMaster) return { url, ...parsed };
   if (!parsed.variants.length) throw new Error('主播放列表里没有可用码率');
   const pick = preferHeight
     ? parsed.variants.find((v) => Number((v.resolution.split('x')[1] || 0)) <= preferHeight) || parsed.variants[parsed.variants.length - 1]
     : parsed.variants[0];
-  const child = await fetchText(pick.url, signal);
+  const child = await fetchText(pick.url, signal, headers);
   return { url: pick.url, ...parsePlaylist(child, pick.url), variants: parsed.variants, picked: pick };
 }
 
