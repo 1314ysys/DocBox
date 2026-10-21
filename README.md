@@ -50,6 +50,24 @@ sudo bash deploy/install-linux.sh --port 3000
 
 > 仓库：<https://github.com/1314ysys/DocBox> · 一键部署与从源码构建见 [`deploy/README.md`](deploy/README.md)
 
+## 0.4.3 有什么变化
+
+> 主题：**网络安全工具去掉第三方中间商**——RDAP/WHOIS 直连权威、子域名改本地字典爆破，查过的结果本地缓存。
+
+- **RDAP / WHOIS 不再经过 `rdap.org`**：内置 IANA 引导表（`src/data/rdap/`），域名按后缀、IP 按前缀算出**权威服务器**直连（`example.com → rdap.verisign.com`、`8.8.8.8 → rdap.arin.net`）；
+  - 权威 RDAP 不可用时自动 **WHOIS TCP 43 直连兜底**（服务器经 `whois.iana.org` 探测 + 30 天缓存 + 内置兜底表）；
+  - **本地缓存**：结果写 `settings` 表（重启不丢），域名 24h / IP 7d，第二次查询 0 毫秒返回；
+  - 表单支持「WHOIS 服务器（可选）」与「忽略本地缓存」。
+- **子域名枚举改成本地字典爆破**：内置 605 条常用命名 + 可自备 `src/data/subdomains-extra.txt`；
+  - `dns.Resolver`（c-ares）真并发，实测 200 个候选 **0.4 秒**扫完（原来走公共 API，受制于人）；
+  - 自动**泛解析识别**（随机子域探测 + 按 IP 过滤假结果）；
+  - **失败快速**：连续 12 个候选全超时且无 NXDOMAIN → 11 秒内报「本机 DNS 疑似被拦截」并给建议，不再干等 5 分钟；45 秒时间预算，超时返回已扫结果；
+  - 来源可选：本地字典 / 证书日志 / 两者，证书日志仍按 crt.sh → hackertarget 重试；
+  - 结果缓存 6 小时，返回每条子域名的解析 IP。
+- 数据文件说明见 `docbox/src/data/README.md`。
+
+---
+
 ## 0.4.2 有什么变化
 
 > 主题：**水印模板对齐参考样式（通用品牌 / 考勤打卡 / 工程记录 / 自定义水印），图片编辑终于能自由选区放大。**
@@ -529,6 +547,7 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 | 0.1.7 | 2026-10-20 | 转写模型升级 Whisper small、接入 Silero VAD 神经网络检测人声（独立进程隔离 onnxruntime），实时转写改为 WebSocket PCM 流式输出（Whisper base 低延迟、按句定稿） |
 | 0.1.6 | 2026-10-20 | 网络安全接入 SSH/Telnet 网页终端（xterm.js + WebSocket，多会话）；OCR 改名「OCR 与转写」，新增 Whisper tiny 音视频转写（离线后台任务 / 在线同步）与麦克风实时转写，支持 SRT 导出 |
 | 0.1.1 | 2026-10-20 | 移除 Stirling-PDF 端口与 JDK；新增音视频 18 项、网络安全 16 项、原生 PDF 21 项；接入本地 MySQL；新增历史页 |
+| 0.4.3 | 2026-10-21 | 网络工具去第三方依赖：RDAP/WHOIS 直连权威 + 本地缓存，子域名改为本地字典爆破（c-ares 并发、泛解析识别、失败快速） |
 | 0.4.2 | 2026-10-21 | 水印模板扩充到 11 套（按参考样式新增通用品牌/考勤打卡/工程记录/自定义水印）+ 新增海拔/方位角/拍摄人/工作单位等字段；图片编辑支持右键拖拽选区、滚轮缩放、中键平移 |
 | 0.1.0_beta | 2026-10-20 | 首个基线：Stirling 融合 + 7 套水印 + 离线 OCR + 前端模块化 |
 

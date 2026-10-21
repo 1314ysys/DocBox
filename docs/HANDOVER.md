@@ -172,6 +172,8 @@ python/apm_server.py         # APM 降噪边车（可选，实时转写前处理
 
 > 0.4.2 起：图片水印共 **11 套**（模板定义唯一事实来源 = `docbox/src/watermark-templates.mjs`，行类型有 `brand/time/meta/location/gps/kv/shot/note/facts/free`）。新增字段（海拔/方位角/拍摄人/工作单位）只要在 `refGeo` 里加一条 + 模板 `rows` 里引用即可。
 >
+> 网络安全工具（0.4.3+）：`netprobe.mjs` 的 `rdap` 走「IANA 引导表 → 权威 RDAP → WHOIS 43 兜底 → 本地缓存（settings 表）」，引导表在 `src/data/rdap/`（>30 天启动后台刷新）；`subdomains` 走 `src/data/subdomains.txt` 本地字典 + c-ares 并发（`makeResolver`），扩展名/新增字段只改 `tool-catalog.mjs` 与 impl 的入参约定。
+>
 > 前端交互回归：`npm run ui:check`（`docbox/scripts/ui-check.mjs`，无头 Edge/Chrome 驱动真实鼠标事件，校验「选区 → 裁剪 → 导出尺寸一致」）。
 >
 > 图片编辑（`docbox/public/js/views/editor.mjs`）约定：画布永远按原图 1:1 绘制，缩放只用 CSS（`ed.cssScale = fit × zoom`），所以**选区坐标就是原图坐标**；交互固定为「右键拖拽选区 / 滚轮缩放 / 中键平移」。

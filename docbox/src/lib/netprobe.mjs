@@ -9,6 +9,10 @@ import http from 'node:http';
 import https from 'node:https';
 import { URL } from 'node:url';
 import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
+import { baseForDomain, baseForIp, refreshBootstrap, bootstrapInfo } from './rdap-bootstrap.mjs';
+import { whoisLookup, whoisToRecord } from './whois.mjs';
+import { cacheGet, cachePut, cacheStats } from './netcache.mjs';
 
 export class NetError extends Error {}
 const fail = (msg) => { throw new NetError(msg); };
@@ -311,30 +315,73 @@ async function fetchWithRetry(url, opts = {}, times = 2, gap = 1200) {
 }
 
 // ------------------------------------------------------------------ 注册信息
-async function rdap(f) {
-  const q = String(f.query || '').trim();
-  if (!q) fail('请填写域名或 IP');
-  const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(q);
-  const url = 'https://rdap.org/' + (isIp ? 'ip/' : 'domain/') + encodeURIComponent(q);
-  let res;
-  try {
-    res = await fetchWithRetry(url, { headers: { accept: 'application/rdap+json', 'user-agent': 'DocBox/0.2.0 (+local)' }, timeout: 20000 }, 3, 1000);
-  } catch (e) {
-    fail('RDAP 服务暂时不可达（' + e.message + '），请稍后重试；域名拼写错误也会查不到');
-  }
-  const json = await res.json();
-  const events = (json.events || []).map((e) => ({ action: e.eventAction, date: e.eventDate }));
-  const nameservers = (json.nameservers || []).map((n) => n.ldhName).filter(Boolean);
-  const entities = (json.entities || []).map((e) => ({
-    handle: e.handle,
-    roles: e.roles || [],
-    name: e.vcardArray?.[1]?.find((x) => x[0] === 'fn')?.[3] || '',
-  })).slice(0, 12);
-  const status = json.status || [];
+const isIpLiteral = (q) => /^\d{1,3}(\.\d{1,3}){3}$/.test(q) || (q.includes(':') && /^[0-9a-fA-F:]+$/.test(q));
+
+function normalizeRdap(q, json, source, server) {
   return {
-    data: { query: q, handle: json.handle, name: json.ldhName || json.name, status, events, nameservers, entities, warning: WARN },
-    note: `${q}：${status.join(',') || '无状态'}；${events.map((e) => e.action + ' ' + String(e.date).slice(0, 10)).join(' / ')}`,
+    query: q,
+    source,
+    server,
+    handle: json.handle,
+    name: json.ldhName || json.name,
+    status: json.status || [],
+    events: (json.events || []).map((e) => ({ action: e.eventAction, date: e.eventDate })),
+    nameservers: (json.nameservers || []).map((n) => n.ldhName).filter(Boolean),
+    entities: (json.entities || []).map((e) => ({
+      handle: e.handle,
+      roles: e.roles || [],
+      name: e.vcardArray?.[1]?.find((x) => x[0] === 'fn')?.[3] || '',
+    })).slice(0, 12),
   };
+}
+
+const summarize = (rec) => `${rec.query}：${(rec.status || []).join(',') || '无状态'}；${
+  (rec.events || []).map((e) => e.action + ' ' + String(e.date).slice(0, 10)).join(' / ')}（${rec.source}${rec.server ? ' · ' + rec.server : ''}）`;
+
+async function rdap(f) {
+  const q = String(f.query || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  if (!q) fail('请填写域名或 IP');
+  const ip = isIpLiteral(q);
+  const key = (ip ? 'ip:' : 'domain:') + q;
+  const ttl = ip ? 7 * 24 * 3600 * 1000 : 24 * 3600 * 1000;
+
+  if (f.fresh !== 'true') {
+    const hit = await cacheGet('rdap', key);
+    if (hit?.data) {
+      return { data: { ...hit.data, fromCache: true, cachedAt: hit.cachedAt }, note: hit.note + '｜本地缓存' };
+    }
+  }
+
+  const errors = [];
+
+  // ① 直连权威 RDAP（IANA 引导表，不经过任何第三方代理）
+  try {
+    const base = ip ? await baseForIp(q) : await baseForDomain(q);
+    if (!base) throw new Error(ip ? '该 IP 段没有登记 RDAP 服务' : '该后缀没有登记 RDAP 服务');
+    const url = base.replace(/\/$/, '') + '/' + (ip ? 'ip/' : 'domain/') + encodeURIComponent(q);
+    const res = await fetchWithRetry(url, { headers: { accept: 'application/rdap+json', 'user-agent': 'DocBox/0.4.3 (+local)' }, timeout: 20000 }, 2, 800);
+    const json = await res.json();
+    if (json.errorCode) throw new Error(json.title || 'HTTP ' + json.errorCode);
+    const rec = normalizeRdap(q, json, 'RDAP 权威', new URL(url).host);
+    const payload = { data: { ...rec, warning: WARN }, note: summarize(rec), cachedAt: new Date().toISOString() };
+    await cachePut('rdap', key, payload, ttl);
+    return { data: { ...payload.data, fromCache: false }, note: payload.note };
+  } catch (e) {
+    errors.push('RDAP 权威端点：' + e.message);
+  }
+
+  // ② WHOIS 兜底（TCP 43 直连，同样不经过第三方接口）
+  try {
+    const w = await whoisLookup(q, { server: f.server });
+    const rec = whoisToRecord(q, w.raw, w.server);
+    const payload = { data: { ...rec, warning: WARN }, note: summarize(rec), cachedAt: new Date().toISOString() };
+    await cachePut('rdap', key, payload, ttl);
+    return { data: { ...payload.data, fromCache: false, fallbacks: errors }, note: payload.note };
+  } catch (e) {
+    errors.push('WHOIS：' + e.message);
+  }
+
+  fail('查询失败：' + errors.join('；') + '。域名刚注册时权威服务器可能还没同步，可过几分钟重试或在「RDAP 服务器」里手动指定');
 }
 
 async function redirectTrace(f) {
@@ -482,7 +529,9 @@ async function localNetwork() {
   };
 }
 
-// crt.sh：证书透明度日志，最权威但经常 502/超时
+// ---------------------------------------------------------------- 子域名枚举
+
+// 证书透明度日志（crt.sh）：数据最全，但服务端经常 502，作为可选来源
 async function fromCrtSh(domain) {
   const res = await fetchWithRetry('https://crt.sh/?q=' + encodeURIComponent('%25.' + domain) + '&output=json', { timeout: 20000, headers: { accept: 'application/json' } }, 2, 1500);
   if (!res.ok) throw new Error('crt.sh HTTP ' + res.status);
@@ -492,7 +541,7 @@ async function fromCrtSh(domain) {
   return set;
 }
 
-// hackertarget：备用源，纯文本 "子域名,IP" 每行一条
+// 备用公共源（只在国内访问 crt.sh 抽风时用）
 async function fromHackerTarget(domain) {
   const res = await fetchWithRetry('https://api.hackertarget.com/hostsearch/?q=' + encodeURIComponent(domain), { timeout: 15000, headers: { accept: 'text/plain' } }, 2, 1000);
   if (!res.ok) throw new Error('hackertarget HTTP ' + res.status);
@@ -506,30 +555,178 @@ async function fromHackerTarget(domain) {
   return set;
 }
 
+/** 本地字典：内置 subdomains.txt + 用户自备 subdomains-extra.txt */
+async function loadWordlist(size) {
+  const read = async (name) => (await fs.readFile(new URL('../data/' + name, import.meta.url), 'utf8').catch(() => ''));
+  const raw = (await read('subdomains.txt')) + '\n' + (await read('subdomains-extra.txt'));
+  const words = [...new Set(raw.split(/\r?\n/).map((x) => x.trim().toLowerCase()).filter((x) => x && /^[a-z0-9._-]+$/.test(x)))];
+  return size > 0 ? words.slice(0, size) : words;
+}
+
+const isTimeout = (e) => e && (e.code === 'ETIMEDOUT' || e.code === 'ETIMEOUT' || e.code === 'EAI_AGAIN' || /timeout/i.test(e.message || ''));
+
+/**
+ * 自建 DNS 解析器：c-ares 能真并发（getaddrinfo 受 libuv 线程池限制，默认只有 4 路），
+ * 扫描才能快起来。系统 DNS 是本机链路地址/环回时自动跳过。
+ */
+function makeResolver(dnsServer) {
+  try {
+    const resolver = new dns.Resolver({ timeout: 2000, tries: 1 });
+    const servers = dnsServer
+      ? [dnsServer]
+      : dns.getServers().filter((s) => !s.startsWith('fe80') && !s.startsWith('::1') && s !== '127.0.0.1');
+    if (servers.length) resolver.setServers(servers.slice(0, 3));
+    else return null;
+    return resolver;
+  } catch {
+    return null;
+  }
+}
+
+/** 一条 DNS 查询：优先 c-ares 并发解析，没有可用解析器时退回系统 getaddrinfo */
+async function resolveHost(host, { resolver } = {}) {
+  if (resolver) {
+    const rs = await Promise.allSettled([resolver.resolve4(host), resolver.resolve6(host)]);
+    const err = rs.find((r) => r.status === 'rejected' && isTimeout(r.reason));
+    if (err && rs.every((r) => r.status === 'rejected')) throw err.reason;
+    return rs.flatMap((r) => (r.status === 'fulfilled' && Array.isArray(r.value) ? r.value : []));
+  }
+  try {
+    const rs = await dns.lookup(host, { all: true });
+    return rs.map((x) => x.address);
+  } catch (e) {
+    if (e.code === 'ENOTFOUND' || e.code === 'ENODATA') return [];
+    throw e; // 超时/网络错误要区分出来，不能当成"不存在"
+  }
+}
+
+/** 泛解析探测：随便编几个不存在的子域名，能解析出来说明是通配符 */
+async function wildcardProbe(domain, opts) {
+  const set = new Set();
+  let timedOut = 0;
+  for (let i = 0; i < 3; i += 1) {
+    const label = 'docbox-wc-' + Math.random().toString(36).slice(2, 10);
+    try {
+      const ips = await resolveHost(label + '.' + domain, opts);
+      ips.forEach((x) => set.add(x));
+    } catch (e) {
+      if (isTimeout(e)) timedOut += 1;
+    }
+  }
+  return { ips: set, timedOut };
+}
+
+/** 本地字典爆破：并发跑 DNS 查询，全程不碰第三方 API */
+async function dictScan(domain, { size = 600, threads = 40, dnsServer = '', budgetMs = 45000 } = {}) {
+  const resolver = makeResolver(String(dnsServer || '').trim());
+  const opts = { resolver };
+
+  const wild = await wildcardProbe(domain, opts);
+  const words = await loadWordlist(size);
+  const queue = [...new Set([domain, ...words.map((w) => w + '.' + domain)])];
+  const found = new Map();
+  const stat = { scanned: 0, hit: 0, timeout: 0, nx: 0 };
+  const deadline = Date.now() + budgetMs;
+  let aborted = '';
+
+  const worker = async () => {
+    while (queue.length) {
+      if (Date.now() > deadline) { aborted = aborted || 'budget'; return; }
+      // 前 12 个候选全部超时、且没有任何 NXDOMAIN/命中 → 基本可判定本机 DNS 不通，别让用户干等
+      if (stat.scanned >= 12 && stat.hit === 0 && stat.nx === 0 && stat.timeout >= stat.scanned) { aborted = 'dns'; return; }
+      const host = queue.shift();
+      if (!host) return;
+      try {
+        const ips = await resolveHost(host, opts);
+        stat.scanned += 1;
+        if (!ips.length) { stat.nx += 1; continue; }
+        if (wild.ips.size && ips.every((ip) => wild.ips.has(ip))) continue;
+        stat.hit += 1;
+        found.set(host, [...new Set(ips)]);
+      } catch (e) {
+        stat.scanned += 1;
+        if (isTimeout(e)) stat.timeout += 1; else stat.nx += 1;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(threads, queue.length) }, worker));
+  return { found, wildcard: [...wild.ips], wildcardTimedOut: wild.timedOut, stat, aborted };
+}
+
 async function subdomains(f) {
   const domain = stripHost(f.domain);
   if (!domain) fail('请填写域名');
-  const providers = [
-    { name: 'crt.sh', run: fromCrtSh },
-    { name: 'hackertarget', run: fromHackerTarget },
-  ];
+  const mode = ['dict', 'ct', 'both'].includes(String(f.mode)) ? String(f.mode) : 'dict';
+  const size = Math.max(100, Math.min(20000, Number(f.size) || 600));
+  const threads = Math.max(4, Math.min(200, Number(f.threads) || 40));
+  const key = `${domain}|${mode}|${size}|${threads}|${f.dns || ''}`;
+
+  if (f.fresh !== 'true') {
+    const hit = await cacheGet('subdomains', key);
+    if (hit?.data) return { data: { ...hit.data, fromCache: true, cachedAt: hit.cachedAt }, note: hit.note + '｜本地缓存' };
+  }
+
+  const names = new Map();      // hostname -> ips
+  const sources = [];
   const errors = [];
-  for (const provider of providers) {
+  let wildcard = [];
+
+  if (mode !== 'ct') {
     try {
-      const set = await provider.run(domain);
-      if (set.size) {
-        const list = [...set].sort().slice(0, 300);
-        return {
-          data: { domain, source: provider.name, count: set.size, subdomains: list, warning: WARN, fallbacks: errors },
-          note: `${domain}：发现 ${set.size} 个子域名（来源 ${provider.name}）`,
-        };
+      const scan = await dictScan(domain, { size, threads, dnsServer: String(f.dns || '').trim() });
+      wildcard = scan.wildcard;
+      for (const [host, ips] of scan.found) names.set(host, ips);
+      if (scan.aborted === 'dns') {
+        errors.push('本机 DNS 查询全部超时（连不存在的域名也不返回 NXDOMAIN），疑似 DNS 被拦截');
+      } else if (scan.aborted === 'budget') {
+        errors.push('达到时间预算（45 秒）提前结束，已扫 ' + scan.stat.scanned + ' 个候选');
+      } else if (scan.wildcardTimedOut && !scan.wildcard.length && scan.stat.hit === 0) {
+        errors.push('DNS 响应很慢（泛解析探测也超时），建议在「DNS 服务器」里指定 223.5.5.5 / 8.8.8.8');
       }
-      errors.push(provider.name + '：没有查到记录');
+      sources.push(`本地字典（扫 ${scan.stat.scanned} 个候选，命中 ${scan.stat.hit}）`);
     } catch (e) {
-      errors.push(provider.name + '：' + e.message);
+      errors.push('本地字典：' + e.message);
     }
   }
-  fail('子域名查询失败，公共查询接口暂时不可用（' + errors.join('；') + '）。crt.sh 经常 502，稍等一两分钟重试通常就好了');
+
+  if (mode !== 'dict') {
+    for (const provider of [{ name: 'crt.sh', run: fromCrtSh }, { name: 'hackertarget', run: fromHackerTarget }]) {
+      try {
+        const set = await provider.run(domain);
+        let added = 0;
+        for (const host of set) {
+          if (!host.endsWith('.' + domain)) continue;
+          if (!names.has(host)) { names.set(host, []); added += 1; }
+        }
+        sources.push(provider.name + `（${added} 条新记录）`);
+        if (added) break; // 拿到就够，不必再打第二个源
+      } catch (e) {
+        errors.push(provider.name + '：' + e.message);
+      }
+    }
+  }
+
+  const list = [...names.keys()].sort();
+  if (!list.length) {
+    const hint = mode === 'dict'
+      ? '可以换更大的字典、在「DNS 服务器」里指定 223.5.5.5 / 8.8.8.8，或切到「证书日志」模式（完全不用本机 DNS）'
+      : '可以换更大的字典，或稍后重试（公共证书日志接口偶尔抽风）';
+    fail('没有发现子域名。' + (errors.length ? '原因：' + errors.join('；') + '。' + hint : hint));
+  }
+  const data = {
+    domain,
+    count: list.length,
+    subdomains: list.slice(0, 300),
+    records: list.slice(0, 300).map((host) => ({ name: host, ips: names.get(host) || [] })),
+    wildcard,
+    sources,
+    errors,
+    mode,
+    warning: WARN + (mode !== 'ct' ? '；字典爆破会向目标域名发起大量 DNS 查询，请只对自己拥有的域名使用' : ''),
+  };
+  const payload = { data, note: `${domain}：${list.length} 个子域名（${sources.join(' / ')}）`, cachedAt: new Date().toISOString() };
+  await cachePut('subdomains', key, payload, 6 * 3600 * 1000);
+  return { data: { ...data, fromCache: false }, note: payload.note };
 }
 
 function headersRecipe(f) {

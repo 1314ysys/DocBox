@@ -1,0 +1,16 @@
+{
+  "version": "0.4.3",
+  "date": "2026-10-21",
+  "theme": "网络安全工具去第三方依赖：RDAP 直连权威 + 本地缓存；子域名本地字典爆破",
+  "codeChanges": [
+    "docbox/src/lib/rdap-bootstrap.mjs（IANA 引导表解析与后台刷新）",
+    "docbox/src/lib/whois.mjs（WHOIS TCP 43 直连 + 服务器探测 + 文本解析）",
+    "docbox/src/lib/netcache.mjs（settings 表本地缓存 + 内存兜底）",
+    "docbox/src/lib/netprobe.mjs（rdap 重写、subdomains 改本地字典 + c-ares 并发）",
+    "docbox/src/tool-catalog.mjs（两个工具的字段）",
+    "docbox/src/data/rdap/*.json、docbox/src/data/subdomains.txt、docbox/src/data/README.md",
+    "docbox/server.mjs（启动后后台刷新 bootstrap）"
+  ],
+  "dbMigration": false,
+  "notes": "缓存复用 settings 表；DNS 受限环境建议指定 DNS 服务器或使用证书日志模式"
+}
