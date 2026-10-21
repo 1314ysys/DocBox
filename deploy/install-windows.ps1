@@ -60,8 +60,19 @@ Info "podman 虚拟机已就绪"
 
 # 3) 镜像包（-SkipLoad：镜像已在本机，跳过载入）
 if ($SkipLoad) {
-  $have = @(& $podman images --format "{{.Repository}}:{{.Tag}}") | ForEach-Object { "$_".Trim() } | Where-Object { $_ }
-  if ($have -notcontains $Image) { Fail "本地没有镜像 $Image，请先跑 deploy\build-image.ps1，或去掉 -SkipLoad 用镜像包载入。" }
+  # 本地构建的镜像在 podman 里显示为 localhost/docbox:xxx，比较时统一去掉前缀
+  $norm = { param($s) "$s".Trim() -replace "^(localhost|docker\.io)/", "" }
+  $haveRaw = @(& $podman images --format "{{.Repository}}:{{.Tag}}" 2>$null)
+  $have = @($haveRaw | ForEach-Object { & $norm $_ } | Where-Object { $_ })
+  if (-not $have.Count) {
+    Warn "podman 没能列出本地镜像（可能虚拟机的 podman.socket 挂了）；尝试重启 podman.socket 后重试"
+    & $podman machine ssh "systemctl --user restart podman.socket" 2>$null | Out-Null
+    Start-Sleep -Seconds 5
+    $have = @((& $podman images --format "{{.Repository}}:{{.Tag}}" 2>$null) | ForEach-Object { & $norm $_ } | Where-Object { $_ })
+  }
+  if ($have -notcontains (& $norm $Image)) {
+    Fail "本地没有镜像 $Image。现有镜像：$($have -join ", ")。请先跑 deploy\build-image.ps1，或去掉 -SkipLoad 用镜像包载入。"
+  }
   Info "跳过载入，使用本地镜像 $Image"
 }
 if (-not $SkipLoad -and -not $ImageTar) {
