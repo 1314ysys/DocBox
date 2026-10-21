@@ -1,0 +1,13 @@
+{
+  "version": "0.4.4",
+  "date": "2026-10-21",
+  "theme": "账户管理的模块授权点选反馈修复；成品目录容器/宿主机路径说明",
+  "codeChanges": [
+    "docbox/public/js/views/accounts.mjs（胶囊状态联动、已选计数、未保存高亮、角色联动、容器目录提示）",
+    "docbox/public/styles.css（胶囊 hover/焦点/锁定 + mod-count）",
+    "docbox/src/routes/settings.mjs（outputs.inContainer / dataDir）",
+    "docbox/scripts/ui-check.mjs（新增 2 条账户授权用例）",
+    "docbox/src/config.mjs、docbox/package.json（版本号 0.4.4）"
+  ],
+  "dbMigration": false
+}

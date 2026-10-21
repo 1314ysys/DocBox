@@ -773,9 +773,17 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   font-size: 10.8px; line-height: 1.45; color: #64748b; cursor: pointer; user-select: none;
   background: #fff;
 }
-.mod-chip input { display: none; }
+.mod-chip { transition: background .12s, border-color .12s, color .12s; }
+.mod-chip:hover:not(.locked) { border-color: #93c5fd; background: #f8fbff; }
+.mod-chip:active:not(.locked) { transform: translateY(1px); }
+/* 复选框保留可聚焦（键盘能 Tab 到、空格切换），但视觉上由胶囊承担 */
+.mod-chip input { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; opacity: 0; overflow: hidden; clip: rect(0 0 0 0); }
+.mod-chip:has(input:focus-visible) { outline: 2px solid #60a5fa; outline-offset: 1px; }
 .mod-chip.on { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-.mod-chip.locked { opacity: .72; cursor: default; }
+.mod-chip.on:hover:not(.locked) { background: #dbeafe; }
+.mod-chip.on::before { content: '✓'; font-size: 10px; margin-right: 1px; }
+.mod-chip.locked { opacity: .72; cursor: not-allowed; }
+.mod-count { font-size: 11px; color: #94a3b8; margin-top: 5px; }
 .account-form {
   display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
 }

@@ -210,7 +210,61 @@ async function main() {
   record('切视图后滚轮仍是一档', JSON.parse(back).editor && ratio2 > 1.3 && ratio2 < 2.0,
     back + ' → ×' + ratio2.toFixed(2) + '（首次 ×' + ratioOnce.toFixed(2) + '），刻度 ' + zoomOnce + ' / ' + zoomAfter, Date.now() - ms);
 
-  // 9. 全程无 JS 异常
+  // 9. 账户管理：模块胶囊点一下就要有反馈、并且能保存（用临时账户，测完删掉）
+  ms = Date.now();
+  const tmpUser = 'uicheck' + Math.random().toString(36).slice(2, 6);
+  const createdStatus = await ev(`fetch('/api/accounts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: '${tmpUser}', password: 'pass1234', role: 'user', modules: ['image'] }) }).then((r) => r.status)`);
+  await ev("location.hash = '#/'; true");
+  await sleep(400);
+  await ev("location.hash = '#/accounts'; true");
+  await sleep(2200);
+  const pickExpr = `(() => {
+    const tr = [...document.querySelectorAll('tr[data-id]')].find((x) => x.textContent.includes('${tmpUser}'));
+    if (!tr) return JSON.stringify({ found: false });
+    const off = [...tr.querySelectorAll('.mod-chip:not(.locked)')].find((c) => !c.querySelector('input[data-mod]').checked);
+    const chip = off || tr.querySelector('.mod-chip:not(.locked)');
+    if (!chip) return JSON.stringify({ found: false, why: 'no-chip' });
+    const input = chip.querySelector('input[data-mod]');
+    const cr = chip.getBoundingClientRect();
+    const sb = tr.querySelector('[data-save]').getBoundingClientRect();
+    return JSON.stringify({ found: true, id: tr.dataset.id, mod: input.dataset.mod, checked: input.checked, cls: chip.className,
+      x: Math.round(cr.left + cr.width / 2), y: Math.round(cr.top + cr.height / 2), sx: Math.round(sb.left + sb.width / 2), sy: Math.round(sb.top + sb.height / 2) });
+  })()`;
+  const rowInfo = await ev(pickExpr);
+  const ri = (() => { try { return JSON.parse(rowInfo); } catch { return { found: false, raw: String(rowInfo) }; } })();
+  let toggleOk = false;
+  let saveOk = false;
+  if (!ri.found) {
+    record('模块胶囊点选有反馈', false, '临时账户行没找到：' + JSON.stringify(ri).slice(0, 140) + ' / 创建状态 ' + createdStatus, Date.now() - ms);
+    record('模块授权可保存', false, '跳过', 0);
+  } else {
+    await mouse('mousePressed', ri.x, ri.y, 'left', 1);
+    await mouse('mouseReleased', ri.x, ri.y, 'left', 0);
+    await sleep(350);
+    const afterExpr = `(() => {
+      const tr = [...document.querySelectorAll('tr[data-id]')].find((x) => x.textContent.includes('${tmpUser}'));
+      const chip = [...tr.querySelectorAll('.mod-chip')].find((c) => c.querySelector('input[data-mod]').dataset.mod === '${ri.mod}');
+      const input = chip.querySelector('input[data-mod]');
+      return JSON.stringify({ checked: input.checked, cls: chip.className, count: tr.querySelector('[data-modcount]')?.textContent });
+    })()`;
+    const afterRaw = await ev(afterExpr);
+    const after = (() => { try { return JSON.parse(afterRaw); } catch { return { checked: null, cls: '<er>' + String(afterRaw).slice(0, 60) }; } })();
+    toggleOk = after.checked === !ri.checked && after.cls.includes('on') === after.checked;
+    record('模块胶囊点选有反馈', toggleOk, ri.mod + '：' + ri.checked + ' → ' + after.checked + '，胶囊「' + after.cls + '」，' + (after.count || ''), Date.now() - ms);
+
+    ms = Date.now();
+    await mouse('mousePressed', ri.sx, ri.sy, 'left', 1);
+    await mouse('mouseReleased', ri.sx, ri.sy, 'left', 0);
+    await sleep(1500);
+    const modsExpr = `fetch('/api/accounts').then((r) => r.json()).then((j) => { const u = (j.users || []).find((x) => x.username === '${tmpUser}'); return JSON.stringify(u ? u.modules : null); })`;
+    const gotRaw = await ev(modsExpr);
+    const got = (() => { try { return JSON.parse(gotRaw); } catch { return null; } })();
+    saveOk = Array.isArray(got) && got.includes(ri.mod) === after.checked;
+    record('模块授权可保存', saveOk, '接口回读 ' + JSON.stringify(got), Date.now() - ms);
+  }
+  // 清理临时账户
+  if (ri.found) await ev(`fetch('/api/accounts/${ri.id}', { method: 'DELETE' }).then((r) => r.status)`);
+  // 10. 全程无 JS 异常
   record('页面无 JS 异常', exceptions.length === 0, exceptions.slice(0, 2).join(' | ') || '无', 0);
 
   await send('Target.closeTarget', { targetId: t.result.targetId });

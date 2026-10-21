@@ -1,7 +1,15 @@
 import express from 'express';
+import path from 'node:path';
 import { ah } from '../lib/async.mjs';
 import { requireAuth, requireAdmin } from '../lib/auth.mjs';
 import { getRetentionHours, setRetentionHours, sweepOutputs, outputsUsage, lastSweepInfo, DEFAULT_RETENTION_HOURS } from '../lib/retention.mjs';
+
+/** 成品目录是不是容器内的路径（容器部署用 DOCBOX_DATA_DIR 指到挂载卷） */
+const dirInfo = (usage) => ({
+  ...usage,
+  inContainer: Boolean(process.env.DOCBOX_DATA_DIR),
+  dataDir: process.env.DOCBOX_DATA_DIR ? path.resolve(process.env.DOCBOX_DATA_DIR) : null,
+});
 
 export const settingsRouter = express.Router();
 
@@ -16,7 +24,7 @@ settingsRouter.get('/api/settings', requireAuth, ah(async (_req, res) => {
       permanent: hours === 0,
       defaultHours: DEFAULT_RETENTION_HOURS,
     },
-    outputs: usage,
+    outputs: dirInfo(usage),
     lastSweep: lastSweepInfo(),
   });
 }));

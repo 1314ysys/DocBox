@@ -38,6 +38,7 @@ export async function renderAccounts(app) {
       <div class="panel">
         <div class="panel-title"><h2>成品文件保留策略</h2><span id="retainUsage" class="muted"></span></div>
         <p class="muted">所有工具产出的成品都放在服务端 <code id="retainDir">outputs</code> 目录（视频解析的 MP4、导出的 PDF/图片等）。默认保留 <b>24 小时</b>，超时由后台每 30 分钟清理一次；设为「永久保存」则不再自动清理。</p>
+        <p class="muted small" id="retainDirNote"></p>
         <div class="run-bar">
           <label class="fld inline"><span>保留时长</span>
             <select id="retainHours">
@@ -81,7 +82,8 @@ export async function renderAccounts(app) {
       return '<label class="mod-chip' + (on ? ' on' : '') + (u.role === 'admin' ? ' locked' : '') + '">' +
         '<input type="checkbox" data-mod="' + m.key + '"' + (on ? ' checked' : '') + dis + '>' + esc(m.name) + '</label>';
     }).join('');
-    return `<tr data-id="${u.id}">
+    const savedMods = u.role === 'admin' ? '' : JSON.stringify(u.modules);
+    return `<tr data-id="${u.id}" data-modules='${savedMods}'>
       <td><b>${esc(u.username)}</b>${isRoot ? ' <span class="tag">内置</span>' : ''}${isSelf ? ' <span class="tag">当前</span>' : ''}<div class="acc-sub">${esc(u.displayName || '')}</div></td>
       <td>
         <select data-role ${isRoot ? 'disabled' : ''}>
@@ -90,7 +92,7 @@ export async function renderAccounts(app) {
         </select>
       </td>
       <td><button class="btn btn-ghost btn-sm" data-toggle ${isRoot || isSelf ? 'disabled' : ''}>${u.status === 'active' ? '启用中' : '已停用'}</button></td>
-      <td><div class="mod-grid">${chips}</div></td>
+      <td><div class="mod-grid">${chips}</div><div class="mod-count" data-modcount>已选 ${chips === '' ? 0 : (u.role === 'admin' ? modules.filter((m) => m.key !== 'accounts').length : u.modules.length)} 个模块</div></td>
       <td class="mono">${esc(String(u.lastLoginAt || '—').replace('T', ' ').slice(0, 16))}</td>
       <td class="acc-actions">
         <button class="btn btn-soft btn-sm" data-save>保存</button>
@@ -99,6 +101,56 @@ export async function renderAccounts(app) {
       </td>
     </tr>`;
   }
+
+  const chipBoxes = (tr) => [...tr.querySelectorAll('input[data-mod]')];
+  const checkedMods = (tr) => chipBoxes(tr).filter((b) => b.checked).map((b) => b.dataset.mod);
+
+  /** 把复选框状态同步到胶囊外观 + 已选计数 + 保存按钮（未保存时高亮） */
+  function syncRow(tr) {
+    const boxes = chipBoxes(tr);
+    let on = 0;
+    for (const box of boxes) {
+      const chip = box.closest('.mod-chip');
+      if (chip) chip.classList.toggle('on', box.checked);
+      if (box.checked) on += 1;
+    }
+    const cnt = tr.querySelector('[data-modcount]');
+    if (cnt) cnt.textContent = '已选 ' + on + ' / ' + boxes.length + ' 个模块';
+    const save = tr.querySelector('[data-save]');
+    if (save && tr.dataset.modules) {
+      const base = JSON.parse(tr.dataset.modules || '[]');
+      const dirty = [...checkedMods(tr)].sort().join('|') !== [...base].sort().join('|');
+      save.classList.toggle('btn-primary', dirty);
+      save.classList.toggle('btn-soft', !dirty);
+      if (!save.dataset.busy) save.textContent = dirty ? '保存 *' : '保存';
+    }
+  }
+
+  /** 切换角色时，管理员=全选并锁定，普通用户=回到已保存的勾选 */
+  function applyRole(tr, role) {
+    const boxes = chipBoxes(tr);
+    const saved = tr.dataset.modules ? JSON.parse(tr.dataset.modules || '[]') : [];
+    for (const box of boxes) {
+      const chip = box.closest('.mod-chip');
+      if (role === 'admin') {
+        box.checked = true;
+        box.disabled = true;
+        chip?.classList.add('locked');
+      } else {
+        box.disabled = false;
+        chip?.classList.remove('locked');
+        box.checked = saved.includes(box.dataset.mod);
+      }
+    }
+    syncRow(tr);
+  }
+
+  table.addEventListener('change', (ev) => {
+    const tr = ev.target.closest('tr[data-id]');
+    if (!tr) return;
+    if (ev.target.matches('input[data-mod]')) syncRow(tr);
+    else if (ev.target.matches('[data-role]')) applyRole(tr, ev.target.value);
+  });
 
   async function patch(id, body) {
     const res = await fetch('/api/accounts/' + id, {
@@ -118,11 +170,17 @@ export async function renderAccounts(app) {
     const mods = [...tr.querySelectorAll('[data-mod]')].filter((c) => c.checked).map((c) => c.dataset.mod);
     if (ev.target.closest('[data-save]')) {
       const role = tr.querySelector('[data-role]').value;
+      const btn = tr.querySelector('[data-save]');
+      if (btn) { btn.dataset.busy = '1'; btn.textContent = '保存中…'; }
       try {
         await patch(id, { role, modules: role === 'admin' ? undefined : mods });
-        toast('已保存');
+        toast('已保存：' + (role === 'admin' ? '管理员（全部模块）' : mods.length + ' 个模块'));
         await load();
-      } catch (err) { toast(err.message, 'error'); }
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        if (btn) { delete btn.dataset.busy; syncRow(tr); }
+      }
     } else if (ev.target.closest('[data-toggle]')) {
       const current = tr.querySelector('[data-toggle]').textContent.includes('启用中') ? 'active' : 'disabled';
       try { await patch(id, { status: current === 'active' ? 'disabled' : 'active' }); await load(); toast('状态已更新'); }
@@ -183,7 +241,17 @@ export async function renderAccounts(app) {
         $('#retainCustom', view).value = String(hours);
         $('#retainCustomWrap', view).hidden = false;
       }
-      $('#retainDir', view).textContent = s.outputs?.dir ? s.outputs.dir : 'outputs';
+      const dirEl = $('#retainDir', view);
+      dirEl.textContent = s.outputs?.dir ? s.outputs.dir : 'outputs';
+      dirEl.title = s.outputs?.inContainer
+        ? '容器内路径（宿主机请把卷挂到 ' + (s.outputs.dataDir || '/data') + '）'
+        : '本机路径';
+      const hintEl = $('#retainDirNote', view);
+      if (hintEl) {
+        hintEl.innerHTML = s.outputs?.inContainer
+          ? '当前运行在容器里，这是<b>容器内路径</b>。宿主机上把目录挂到 <code>' + esc(s.outputs.dataDir || '/data') + '</code>（例如 <code>-v D:\\docbox-data:' + esc(s.outputs.dataDir || '/data') + '</code>），成品就出现在宿主机该目录的 <code>outputs/</code> 下。下载/预览走 HTTP（<code>/files/…</code>），路径本身不影响使用。'
+          : '这是服务端本机路径。下载/预览走 HTTP（<code>/files/…</code>），你也可以直接在文件管理器里打开这个目录。';
+      }
       const used = s.outputs ? (s.outputs.files + ' 个文件 · ' + fmtSize(s.outputs.bytes)) : '';
       const last = s.lastSweep ? ('上次清理 ' + String(s.lastSweep.at).replace('T', ' ').slice(0, 16) + '（删 ' + s.lastSweep.removedFiles + ' 个）') : '尚未清理过';
       $('#retainUsage', view).textContent = used + ' · ' + last;
