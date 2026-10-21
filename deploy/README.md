@@ -158,10 +158,13 @@ podman logs -f docbox      # 查看启动日志
 
 **网络类工具（测速/DNS/WHOIS）失败**：这些工具需要宿主机能出网；容器内 DNS 与宿主机一致，代理环境请给 podman 虚拟机配同样的代理。
 
+**视频解析抓不到 m3u8 / 提示「内置浏览器不可用」**：先用页面上的「内置浏览器 chromium」标签或 `curl http://127.0.0.1:3000/api/video/browser` 确认。容器里 chromium 随镜像安装（`DOCBOX_CHROME=/usr/bin/chromium`），启动参数已带 `--no-sandbox`（容器以 root 运行必须）和 `--disable-dev-shm-usage`（容器 `/dev/shm` 通常只有 64MB）。若改成 `--userns=keep-id` 以非 root 运行，请加 `-e DOCBOX_TMP_DIR=/data/tmp`，否则浏览器的工作目录不可写、嗅探会直接失败。
+
 **镜像多大**：`podman images docbox` 约 1.5~2 GB（含 Node 依赖、FFmpeg、MariaDB、SenseVoice/zipformer 语音模型）。
 
 ## 已验证
 
 - 镜像可正常启动：MariaDB 10.11 初始化 + 建库建号 + 应用监听 3000，`/api/health` 返回 200；
 - 容器内实测通过：中文 PDF 水印、文档转 PDF（无浏览器时走纯文本兜底排版）、公文排版、SenseVoice 快速转写（模型已打包在镜像里，无需联网）、APM 降噪（python3 + numpy）；
+- **内置无头浏览器（视频解析的深度嗅探）容器内实测有效**：容器内 `Chromium 155.0.8059.79`（Debian bookworm），`--headless=new --no-sandbox --disable-dev-shm-usage` 正常输出 DOM；直接调用 `browser.mjs` 的 `sniffMedia()`：本地测试页抓到 **2 条 `.m3u8 [200]`**（2.1s，标题/请求数均正确），外网页面（baidu.com）抓到 82 个请求且标题正确；`GET /api/video/status` 返回 `browser.available=true, path=/usr/bin/chromium`。dbus 报错是容器无 dbus 的噪音，可忽略。
 - 实测 `scripts/tools-check.mjs`：宿主机 **93/94**（唯一失败是 crt.sh 外部接口 502）；容器内 **91/94**，剩下 3 项全是需要外网的目标探测（RDAP / HTTP 方法探测 / crt.sh），容器无外网属部署环境限制，不是工具缺陷。
