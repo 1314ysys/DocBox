@@ -33,12 +33,36 @@ const JOBS = [
 
 const mb = (n) => (n / 1024 / 1024).toFixed(1) + ' MB';
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchWithRetry(url, tries = 4) {
+  let lastErr = null;
+  for (let i = 1; i <= tries; i += 1) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(1800000) });
+      if (res.ok) return res;
+      // 429（镜像站限流）/ 5xx 值得等一会儿重试
+      if (res.status === 429 || res.status >= 500) {
+        lastErr = new Error('HTTP ' + res.status + ' ' + url);
+        const wait = 5000 * i;
+        console.log('  … HTTP ' + res.status + '，' + wait / 1000 + ' 秒后重试（' + i + '/' + tries + '）');
+        await sleep(wait);
+        continue;
+      }
+      throw new Error('HTTP ' + res.status + ' ' + url);
+    } catch (e) {
+      lastErr = e;
+      if (i < tries) { console.log('  … ' + e.message + '，重试（' + i + '/' + tries + '）'); await sleep(3000 * i); }
+    }
+  }
+  throw lastErr;
+}
+
 async function download(base, job) {
   const url = base + '/' + job.repo + '/resolve/main/' + job.file;
   const out = path.join(OUT, job.out);
   fs.mkdirSync(path.dirname(out), { recursive: true });
-  const res = await fetch(url, { signal: AbortSignal.timeout(1800000) });
-  if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + url);
+  const res = await fetchWithRetry(url);
   const total = Number(res.headers.get('content-length') || 0);
   const part = out + '.part';
   const stream = fs.createWriteStream(part);
