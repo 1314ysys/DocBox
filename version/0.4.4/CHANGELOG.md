@@ -39,3 +39,20 @@
 新增的 ui-check 用例会**临时建一个 uicheck 账户**、在真实浏览器里点胶囊（校验"勾选状态 == 胶囊外观"）、点保存后用 `/api/accounts` 回读校验，最后删掉该临时账户，不污染现有账号。
 
 实测记录：`pdf：false → true，胶囊「mod-chip on」，已选 2 / 8 个模块`；保存后接口回读 `["image","pdf"]`。目录信息实测：本机 `outputs.dir = E:\…\docbox\outputs，inContainer=false`；设 `DOCBOX_DATA_DIR=D:/container-data` 后为 `D:\container-data\outputs`。
+
+## 6. 交付物（本版已产出并校验）
+
+| 文件 | 大小 | 说明 |
+| --- | --- | --- |
+| `docbox-0.4.4-image.tar` | 4 317 192 704 字节（4.02 GiB） | `podman save --format docker-archive` 导出，镜像 `localhost/docbox:0.4.4` / ID `d44d957fd4ae` / 4.32 GB |
+| `docbox-0.4.4.tar.gz` / `docbox-0.4.4.zip` | 1.8 MB / 1.9 MB | 源码快照（`git archive HEAD`），随仓库一起提交 |
+| 阿里云 ACR | — | `.../podman_images_dev/images_dev:0.4.4` 与 `:latest`，digest `sha256:6a841d7a9dd9a1eefb9fdf22e2a1ff98d7c99108e2b179620b49353ef7bff476` |
+
+- **镜像包 SHA256**：`b5938d21bbae919729c09192f6c4353928f6d526518d0d2e06b6c5539a822e01`
+- **镜像包有效性**：`podman load -i docbox-0.4.4-image.tar` → `Loaded image: localhost/docbox:0.4.4`（实测通过）
+- **容器内实跑**：`/api/health` → `{"ok":true,"version":"0.4.4","db":{"available":true}}`
+- 说明：镜像包体积超过 GitHub Release 单个资产 **2 GiB** 上限，因此不进 Release；离线分发走网盘/内网，或直接 `podman pull` ACR。
+
+## 7. 升级提示（同 0.4.3 段，无数据库结构变更）
+
+覆盖代码 / 换镜像即可；`settings` 表复用于网络结果缓存，无迁移。

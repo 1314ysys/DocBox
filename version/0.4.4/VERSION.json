@@ -9,5 +9,35 @@
     "docbox/scripts/ui-check.mjs（新增 2 条账户授权用例）",
     "docbox/src/config.mjs、docbox/package.json（版本号 0.4.4）"
   ],
-  "dbMigration": false
+  "dbMigration": false,
+  "artifacts": {
+    "image": {
+      "tag": "localhost/docbox:0.4.4",
+      "id": "d44d957fd4ae",
+      "size": "4.32 GB",
+      "tar": "docbox-0.4.4-image.tar",
+      "tarBytes": 4317192704,
+      "tarSha256": "b5938d21bbae919729c09192f6c4353928f6d526518d0d2e06b6c5539a822e01",
+      "format": "docker-archive"
+    },
+    "source": {
+      "zip": "docbox-0.4.4.zip",
+      "tarGz": "docbox-0.4.4.tar.gz"
+    },
+    "registry": {
+      "repo": "crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev",
+      "tags": [
+        "0.4.4",
+        "latest"
+      ],
+      "digest": "sha256:6a841d7a9dd9a1eefb9fdf22e2a1ff98d7c99108e2b179620b49353ef7bff476"
+    }
+  },
+  "tests": {
+    "smoke": "192 / 192",
+    "toolsCheck": "94 / 94",
+    "uiCheck": "12 / 12",
+    "containerHealth": "{\"ok\":true,\"version\":\"0.4.4\",\"db\":{\"available\":true}}",
+    "containerBrowserSniff": "Chromium 155 headless 嗅探成功（本地页抓到 2 条 .m3u8 [200]）"
+  }
 }
