@@ -1,7 +1,8 @@
 ﻿# DocBox 一键部署（Windows / Podman）
 # 用法：右键「使用 PowerShell 运行」，或在 PowerShell 里执行：
 #   powershell -ExecutionPolicy Bypass -File .\install-windows.ps1
-# 可选参数：-Port 3000 -ImageTar .\docbox-0.4.4-image.tar -Volume docbox-data -NoBrowser
+# 默认流程：有镜像包就载入 → 没有就本地镜像 → 都没有就自动从阿里云 ACR 拉取（约 4.3GB）
+# 可选参数：-Port 3000 -ImageTar .\docbox-0.4.4-image.tar -Volume docbox-data -NoBrowser -NoPull
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
@@ -12,7 +13,10 @@ param(
   [int]$Cpus        = 4,
   [int]$MemoryMB    = 6144,
   [switch]$NoBrowser,
-  [switch]$SkipLoad
+  [switch]$SkipLoad,
+  [string]$Registry = "crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev",
+  [string]$Version  = "0.4.4",
+  [switch]$NoPull
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,37 +62,61 @@ if (-not $machines.Trim()) {
 if ($LASTEXITCODE -ne 0) { Fail "podman 虚拟机启动失败，请运行 'podman machine start' 查看原因。" }
 Info "podman 虚拟机已就绪"
 
-# 3) 镜像包（-SkipLoad：镜像已在本机，跳过载入）
-if ($SkipLoad) {
-  # 本地构建的镜像在 podman 里显示为 localhost/docbox:xxx，比较时统一去掉前缀
-  $norm = { param($s) "$s".Trim() -replace "^(localhost|docker\.io)/", "" }
-  $haveRaw = @(& $podman images --format "{{.Repository}}:{{.Tag}}" 2>$null)
-  $have = @($haveRaw | ForEach-Object { & $norm $_ } | Where-Object { $_ })
-  if (-not $have.Count) {
-    Warn "podman 没能列出本地镜像（可能虚拟机的 podman.socket 挂了）；尝试重启 podman.socket 后重试"
+# 3) 准备镜像：镜像包 → 本地已有 → 阿里云 ACR（依次回退）
+$norm = { param($s) "$s".Trim() -replace "^(localhost|docker\.io)/", "" }
+$targetRef = "${Registry}:${Version}"
+
+function Get-LocalImageNames {
+  $raw = @(& $podman images --format "{{.Repository}}:{{.Tag}}" 2>$null)
+  if (-not $raw.Count) {
+    Warn "podman 没能列出本地镜像（可能虚拟机的 podman.socket 挂了），尝试重启 podman.socket ..."
     & $podman machine ssh "systemctl --user restart podman.socket" 2>$null | Out-Null
     Start-Sleep -Seconds 5
-    $have = @((& $podman images --format "{{.Repository}}:{{.Tag}}" 2>$null) | ForEach-Object { & $norm $_ } | Where-Object { $_ })
+    $raw = @(& $podman images --format "{{.Repository}}:{{.Tag}}" 2>$null)
   }
-  if ($have -notcontains (& $norm $Image)) {
-    Fail "本地没有镜像 $Image。现有镜像：$($have -join ", ")。请先跑 deploy\build-image.ps1，或去掉 -SkipLoad 用镜像包载入。"
-  }
-  Info "跳过载入，使用本地镜像 $Image"
+  return @($raw | ForEach-Object { & $norm $_ } | Where-Object { $_ -and $_ -notmatch "<none>" })
 }
-if (-not $SkipLoad -and -not $ImageTar) {
+
+function Try-PullImage {
+  if ($NoPull) { return $false }
+  Info "本地没有可用镜像，尝试从阿里云 ACR 拉取：$targetRef（约 4.3 GB，首次较慢）..."
+  & $podman pull $targetRef
+  if ($LASTEXITCODE -ne 0) { return $false }
+  return $true
+}
+
+if (-not $ImageTar) {
   $candidates = @(
-    (Join-Path $PSScriptRoot "docbox-0.4.4-image.tar"),
-    (Join-Path $PSScriptRoot "docbox-0.4.4-image.tar.gz"),
-    (Join-Path $script:Root "docbox-0.4.4-image.tar"),
-    (Join-Path $script:Root "docbox-0.4.4-image.tar.gz")
+    (Join-Path $PSScriptRoot "docbox-$Version-image.tar"),
+    (Join-Path $PSScriptRoot "docbox-$Version-image.tar.gz"),
+    (Join-Path $script:Root "docbox-$Version-image.tar"),
+    (Join-Path $script:Root "docbox-$Version-image.tar.gz")
   ) + (Get-ChildItem -Path (Join-Path $script:Root "version") -Recurse -Include "docbox-*-image.tar","docbox-*-image.tar.gz" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
   $ImageTar = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 }
-if (-not $SkipLoad) {
-  if (-not $ImageTar -or -not (Test-Path $ImageTar)) { Fail "找不到镜像包 docbox-*-image.tar(.gz)，请放在 $PSScriptRoot，或用 -ImageTar 指定；也可以先跑 deploy\build-image.ps1 再带 -SkipLoad。" }
-  Info "载入镜像：$ImageTar（首次需要 1~3 分钟）..."
+
+if (-not $SkipLoad -and $ImageTar -and (Test-Path $ImageTar)) {
+  Info "载入镜像包：$ImageTar（首次需要 1~3 分钟）..."
   & $podman load -i $ImageTar
-  if ($LASTEXITCODE -ne 0) { Fail "podman load 失败" }
+  if ($LASTEXITCODE -ne 0) { Fail "podman load 失败，镜像包可能损坏；可改用 -NoPull:\$false 从 ACR 拉取" }
+  Info "载入完成，使用镜像 $Image"
+} else {
+  $have = Get-LocalImageNames
+  if ($have -contains (& $norm $Image)) {
+    Info "本地已有镜像 $Image，跳过载入"
+  } elseif (Try-PullImage) {
+    $Image = $targetRef
+    Info "已从 ACR 拉取：$Image"
+  } else {
+    Fail @"
+没有可用的 DocBox 镜像，三种办法任选其一：
+  1) 连网跑一次（脚本会自动 podman pull）：重新执行本脚本，或手动
+     podman pull $targetRef
+  2) 用离线镜像包：把 docbox-$Version-image.tar 放到 deploy\\ 或仓库根目录，或加 -ImageTar PATH
+  3) 自己构建：deploy\build-image.ps1，然后 .\deploy\install-windows.ps1 -SkipLoad
+当前本地镜像：$($have -join ', ')
+"@
+  }
 }
 
 # 4) 数据卷

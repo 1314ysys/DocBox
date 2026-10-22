@@ -8,10 +8,18 @@
 #   --boot               生成 systemd 用户服务并开机自启（quadlet）
 #   --no-browser         不尝试打开浏览器
 #   --skip-load          镜像已在本机（自己构建过），跳过载入镜像包
+#   --registry REPO      ACR 仓库地址（默认本项目的阿里云仓库）
+#   --version X.Y.Z      镜像标签（默认 0.4.4）
+#   --no-pull            禁止自动 podman pull（完全离线时用）
+# 默认顺序：镜像包 → 本地已有镜像 → 阿里云 ACR 自动拉取（约 4.3GB）
 set -euo pipefail
 
 PORT=3000
+VERSION="0.4.4"
 IMAGE="docbox:0.4.4"
+REGISTRY="crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev"
+NO_PULL=0
+SKIP_LOAD=0
 VOLUME="docbox-data"
 DATA_DIR=""
 IMAGE_TAR=""
@@ -33,8 +41,11 @@ while [[ $# -gt 0 ]]; do
     --data-dir) DATA_DIR="$2"; shift 2 ;;
     --boot) BOOT=1; shift ;;
     --no-browser) OPEN_BROWSER=0; shift ;;
---skip-load) SKIP_LOAD=1; shift ;;
-    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    --skip-load) SKIP_LOAD=1; shift ;;
+    --registry) REGISTRY="$2"; shift 2 ;;
+    --version) VERSION="$2"; shift 2 ;;
+    --no-pull) NO_PULL=1; shift ;;
+    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
     *) fail "未知参数：$1" ;;
   esac
 done
@@ -60,25 +71,47 @@ if ! command -v podman >/dev/null 2>&1; then
 fi
 info "podman：$(podman --version)"
 
-# 2) 镜像包
-if [[ -z "$IMAGE_TAR" ]]; then
-  for c in "$SCRIPT_DIR/docbox-0.4.4-image.tar" "$SCRIPT_DIR/docbox-0.4.4-image.tar.gz" \
-           "$ROOT_DIR/docbox-0.4.4-image.tar" "$ROOT_DIR/docbox-0.4.4-image.tar.gz"; do
+# 2) 准备镜像：镜像包 → 本地已有 → 阿里云 ACR（依次回退）
+TARGET="${REGISTRY}:${VERSION}"
+
+have_image() { $SUDO podman image exists "$1" >/dev/null 2>&1; }
+
+pull_image() {
+  if [[ "$NO_PULL" -eq 1 ]]; then return 1; fi
+  info "本地没有可用镜像，尝试从阿里云 ACR 拉取：$TARGET（约 4.3 GB，首次较慢）..."
+  if $SUDO podman pull "$TARGET"; then return 0; fi
+  return 1
+}
+
+if [[ "$SKIP_LOAD" -eq 0 && -z "$IMAGE_TAR" ]]; then
+  for c in "$SCRIPT_DIR/docbox-${VERSION}-image.tar" "$SCRIPT_DIR/docbox-${VERSION}-image.tar.gz" \
+           "$ROOT_DIR/docbox-${VERSION}-image.tar" "$ROOT_DIR/docbox-${VERSION}-image.tar.gz"; do
     if [[ -f "$c" ]]; then IMAGE_TAR="$c"; break; fi
   done
   if [[ -z "$IMAGE_TAR" && -d "$ROOT_DIR/version" ]]; then
     IMAGE_TAR="$(find "$ROOT_DIR/version" -name 'docbox-*-image.tar*' 2>/dev/null | sort | tail -1 || true)"
   fi
 fi
-if [[ "${SKIP_LOAD:-0}" -eq 1 ]]; then
-  podman image exists "$IMAGE" || fail "本地没有镜像 $IMAGE，请先跑 bash deploy/build-image.sh，或去掉 --skip-load"
-  info "跳过载入，使用本地镜像 $IMAGE"
+
+if [[ "$SKIP_LOAD" -eq 0 && -n "$IMAGE_TAR" && -f "$IMAGE_TAR" ]]; then
+  info "载入镜像包：$IMAGE_TAR（首次约 1~3 分钟）..."
+  if ! $SUDO podman load -i "$IMAGE_TAR"; then
+    fail "podman load 失败，镜像包可能损坏。可删掉该镜像包后重跑本脚本（会自动从 ACR 拉取）"
+  fi
+  info "载入完成，使用镜像 $IMAGE"
 else
-  [[ -n "$IMAGE_TAR" && -f "$IMAGE_TAR" ]] || fail "找不到镜像包 docbox-*-image.tar(.gz)，请用 --image-tar 指定；也可先跑 bash deploy/build-image.sh 再带 --skip-load"
-fi
-info "载入镜像：$IMAGE_TAR（首次约 1~3 分钟）..."
-if [[ "${SKIP_LOAD:-0}" -ne 1 ]]; then
-  $SUDO podman load -i "$IMAGE_TAR"
+  if have_image "$IMAGE"; then
+    info "本地已有镜像 $IMAGE，跳过载入"
+  elif pull_image; then
+    IMAGE="$TARGET"
+    info "已从 ACR 拉取：$IMAGE"
+  else
+    printf '\n' >&2
+    fail "没有可用的 DocBox 镜像，三选一：
+  1) 连网重跑本脚本（脚本会自动 podman pull $TARGET）
+  2) 离线镜像包：把 docbox-${VERSION}-image.tar 放到 deploy/ 或仓库根目录，或用 --image-tar PATH 指定
+  3) 自己构建：bash deploy/build-image.sh，然后 bash deploy/install-linux.sh --skip-load"
+  fi
 fi
 
 # 3) 数据卷 / 数据目录
@@ -100,8 +133,13 @@ if $SUDO podman container exists docbox 2>/dev/null; then
   $SUDO podman rm -f docbox >/dev/null
 fi
 info "启动容器：端口 $PORT -> 3000"
-$SUDO podman run -d --name docbox --restart=always \
-  -p "$PORT:3000" -v "$MOUNT" "$IMAGE" >/dev/null
+if ! $SUDO podman run -d --name docbox --restart=always \
+  -p "$PORT:3000" -v "$MOUNT" "$IMAGE" >/dev/null; then
+  if $SUDO ss -ltn 2>/dev/null | grep -q ":$PORT "; then
+    fail "端口 $PORT 已被占用。换一个端口重跑，例如：bash $0 --port 3100"
+  fi
+  fail "容器启动失败，查看详情：$SUDO podman logs docbox"
+fi
 
 # 5) 等待健康检查
 URL="http://127.0.0.1:$PORT"

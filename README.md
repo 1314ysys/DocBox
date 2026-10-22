@@ -11,38 +11,52 @@
 
 不想装 Node / MySQL / FFmpeg，就用容器：一个镜像自带 Node 22、MariaDB、FFmpeg、中文字体、中文 OCR 与 SenseVoice/zipformer 语音模型，数据全部留在数据卷里。
 
-### 从阿里云 ACR 拉镜像（最省事，不用下 4GB tar、不用构建）
-
-镜像发布在阿里云容器镜像服务（个人版）杭州实例：`crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev`（标签 `0.4.4` / `latest`，两者同一镜像）。
-
-> 仓库现在是**公开**的，`podman pull` / `docker pull` **免登录**；若以后改成私有，先 `podman login crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`（用户名/密码见阿里云控制台「访问凭证」）。
-> 已发布 digest：`sha256:6a841d7a9dd9a1eefb9fdf22e2a1ff98d7c99108e2b179620b49353ef7bff476`（`0.4.4` 与 `latest` 同一镜像）。
-
-```bash
-# 1) 拉镜像（国内直连，比从 GitHub 下 tar 快很多）
-podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4   # docker 同理
-
-# 2) 一键起容器（自动建数据卷、等健康检查、打印访问地址）
-sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4 --skip-load
-```
-
-Windows 也是先 `podman pull` 再 `.\deploy\install-windows.ps1 -Image <镜像名> -SkipLoad`。
-
-### 用离线镜像包 / 从源码构建
+**一条命令搞定**（脚本自动：装 podman → 起虚拟机 → 取镜像 → 建数据卷 → 起容器 → 等健康检查 → 打开浏览器）：
 
 ```powershell
-# Windows：右键「使用 PowerShell 运行」
+# Windows（右键「使用 PowerShell 运行」也行）
 powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
 ```
 
 ```bash
-# Linux：自动装 podman → 载入镜像 → 起容器 → 等健康检查
-sudo bash deploy/install-linux.sh --port 3000
+# Linux
+sudo bash deploy/install-linux.sh
 ```
 
-- 镜像包 `podman save` 导出（约 4.3GB，按需自行生成：`podman save -o docbox-0.4.4-image.tar localhost/docbox:0.4.4`），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
+默认从**阿里云 ACR 自动拉镜像**（约 4.3 GB，国内直连；公开仓库免登录）。取不到镜像时脚本会把可选的三种办法直接打出来，不会静默失败。
+
+### 三种取镜像方式（脚本按此顺序自动回退）
+
+| 方式 | 怎么用 | 适合 |
+| --- | --- | --- |
+| **镜像包**（优先） | 把 `docbox-0.4.4-image.tar` 放到 `deploy/` 或仓库根目录；或 `-ImageTar PATH` / `--image-tar PATH` | 内网 / 无外网 |
+| **本地已有镜像** | 自己构建过：`-SkipLoad` / `--skip-load` | 改代码后重装 |
+| **阿里云 ACR**（兜底/默认） | 脚本自动 `podman pull`；也可手动：`podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4` | 有网，最省事 |
+
+```bash
+# ACR 地址（标签 0.4.4 / latest 是同一镜像；docker 同理）
+podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4
+```
+
+> 公开仓库，`podman pull` / `docker pull` **免登录**；若以后改成私有，先 `podman login crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`（用户名/密码见阿里云控制台「访问凭证」）。
+> 已发布 digest：`sha256:6a841d7a9dd9a1eefb9fdf22e2a1ff98d7c99108e2b179620b49353ef7bff476`（`0.4.4` 与 `latest` 同一镜像）。
+
+### 从源码构建镜像（要改代码时才需要）
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\build-image.ps1     # 构建 docbox:0.4.4
+powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1 -SkipLoad
+```
+
+```bash
+bash deploy/build-image.sh          # 约 10~20 分钟，产物 docbox:0.4.4
+bash deploy/install-linux.sh --skip-load
+```
+
+- 离线 tar 不随仓库分发（4.3 GB，超过 GitHub 单文件限制）：需要时 `podman save --format docker-archive -o docbox-0.4.4-image.tar <镜像名>` 自行导出；脚本会自动捡 `deploy/`、仓库根目录、`version/*/` 下的 `docbox-*-image.tar`；
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
-- 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
+- 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查；
+- 常用参数：`-Port`/`--port`、`-Volume`/`--volume`、`--data-dir`（改用绑定目录）、`--boot`（Linux 开机自启 quadlet）、`--no-pull`（完全离线）。
 
 细节、参数与常见问题见 **[deploy/README.md](deploy/README.md)**；  接手/二次开发/发版流程见 **[docs/HANDOVER.md](docs/HANDOVER.md)**（部署 · 改功能 · 发版 · 注意事项 · 故障排查）。
 
