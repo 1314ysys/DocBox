@@ -95,4 +95,4 @@ for (const job of JOBS) {
 }
 const total = JOBS.reduce((s, j) => s + (fs.existsSync(path.join(OUT, j.out)) ? fs.statSync(path.join(OUT, j.out)).size : 0), 0);
 console.log('\n完成：' + JOBS.length + ' 个文件（跳过 ' + skip + '），合计 ' + mb(total));
-console.log('接下来：podman build -t docbox:0.4.1 .   或   bash deploy/build-image.sh');
+console.log('接下来：podman build -t docbox:0.4.4 .   或   bash deploy/build-image.sh');

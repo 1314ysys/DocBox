@@ -1,5 +1,10 @@
 node_modules
 **/node_modules
+# 构建/测试脚手架与日志（不参与镜像）
+tmp
+tmp/**
+**/tmp-*.mjs
+.dsh
 docbox/tmp
 docbox/uploads
 docbox/outputs

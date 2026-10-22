@@ -6,7 +6,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TAG="docbox:0.4.1"
+TAG="docbox:0.4.4"
 SKIP_MODELS=0
 NO_CACHE=""
 SUDO=""

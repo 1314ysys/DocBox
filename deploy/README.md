@@ -5,7 +5,7 @@
 
 | 内容 | 说明 |
 | --- | --- |
-| 镜像 | `docbox:0.4.1`（加载自 `docbox-0.4.1-image.tar`，约 4.1 GB；或从源码构建） |
+| 镜像 | `docbox:0.4.4`（加载自 `docbox-0.4.4-image.tar`，约 4.3 GB；或从源码构建） |
 | 端口 | 宿主机 `3000` → 容器 `3000` |
 | 数据卷 | 默认命名卷 `docbox-data` → `/data`（MariaDB 数据、上传、产物、缓存） |
 | 默认账号 | `root / root`（首次登录后请到「账户管理」改密码） |
@@ -22,7 +22,7 @@ deploy/
 ├── fetch-models.mjs           # 下载语音模型到 deploy/models（约 420 MB，构建镜像用）
 ├── docker-entrypoint.sh       # 容器入口（初始化 MariaDB → 建库建号 → 启动应用）
 ├── models/                    # 语音模型目录（仓库不存模型，用 fetch-models.mjs 拉取）
-└── docbox-0.4.1-image.tar     # 可选：podman save 导出的成品镜像（约 4.1 GB，随发行包单独下载）
+└── docbox-0.4.4-image.tar     # 可选：podman save 导出的成品镜像（约 4.3 GB，随发行包单独下载）
 ```
 
 ## 三种装法
@@ -30,23 +30,23 @@ deploy/
 | 方式 | 需要什么 | 适合谁 |
 | --- | --- | --- |
 | **0. 直接拉阿里云 ACR 镜像**（最省事） | 能访问 `crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`，约 4.3 GB 下载 | 只想跑起来，不想构建、也没有本地 tar |
-| **A. 用镜像包** | `docbox-0.4.1-image.tar`（4.1 GB，仓库里没有，从 Release/网盘单独取） | 内网 / 离线环境 |
+| **A. 用镜像包** | `docbox-0.4.4-image.tar`（4.3 GB，仓库里没有，从 Release/网盘单独取） | 内网 / 离线环境 |
 | **B. 从源码构建** | 本仓库源码 + 能上网（拉依赖/模型） | 想自己改代码、或在服务器上直接构建 |
 
 ### 方式 0：从阿里云 ACR 拉取（推荐，两条命令）
 
-镜像位置：`crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev`，标签 `0.4.1` / `latest`。
+镜像位置：`crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev`，标签 `0.4.4` / `latest`（两者同一镜像）。
 
 > 仓库现在是**公开**的，`podman pull` / `docker pull` **免登录**；若以后改成私有，先 `podman login crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`（用户名/密码见阿里云控制台「访问凭证」）。
-> 已发布 digest：`sha256:2647d5172afa3c4266eb717427c62ab06175f176fc1ff24f678f481828ec6ccf`（`0.4.1` 与 `latest` 同一镜像）。
+> 已发布 digest：`sha256:6a841d7a9dd9a1eefb9fdf22e2a1ff98d7c99108e2b179620b49353ef7bff476`（`0.4.4` 与 `latest` 同一镜像）。
 
 ```bash
 # 1) 拉镜像（国内直连，速度快）
-podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1
-# 用 docker 也一样：docker pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1
+podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4
+# 用 docker 也一样：docker pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4
 
 # 2) 一键起容器（脚本自动建数据卷、等健康检查、打印访问地址）
-sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1 --skip-load
+sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4 --skip-load
 ```
 
 不想用脚本就手工起（数据全在 `docbox-data` 卷里，删容器不丢）：
@@ -55,15 +55,15 @@ sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.pers
 podman volume create docbox-data
 podman run -d --name docbox --restart=always -p 3000:3000 \
   -v docbox-data:/data --shm-size=1g \
-  crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1
-curl http://127.0.0.1:3000/api/health     # {"ok":true,"version":"0.4.1",...}
+  crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4
+curl http://127.0.0.1:3000/api/health     # {"ok":true,"version":"0.4.4",...}
 ```
 
 > 默认账号 `root / root`，登录后到「账户管理」改密码。`--shm-size=1g` 是给内置 chromium（视频嗅探）留共享内存，不给也能跑（启动参数已带 `--disable-dev-shm-usage`）。
 
 ### 方式 A：用离线镜像包
 
- | `docbox-0.4.1-image.tar`（4.1 GB，仓库里没有，从 Release/网盘单独取） | 只想跑起来，不想编译 |
+ | `docbox-0.4.4-image.tar`（4.3 GB，仓库里没有，从 Release/网盘单独取） | 只想跑起来，不想编译 |
 | **B. 从源码构建** | 本仓库源码 + 能上网（拉依赖/模型） | 想自己改代码、或在服务器上直接构建 |
 
 ### 方式 B：从源码构建（不要现成镜像包）
@@ -84,21 +84,21 @@ sudo bash deploy/build-image.sh
 sudo bash deploy/install-linux.sh --skip-load
 ```
 
-构建脚本会自动：检查 podman（缺则提示装）→ 起虚拟机（Windows）→ 下载语音模型到 `deploy/models` → `podman build -t docbox:0.4.1 .`。
+构建脚本会自动：检查 podman（缺则提示装）→ 起虚拟机（Windows）→ 下载语音模型到 `deploy/models` → `podman build -t docbox:0.4.4 .`。
 模型缺失**不会阻塞构建**，只是「语音转写 / 实时转写」不可用；想省 420 MB 带宽可加 `-SkipModels` / `--skip-models`。
 
 手动等价命令：
 
 ```bash
 node deploy/fetch-models.mjs          # 可选：下载模型（hf-mirror.com，可用 --source hf 直连）
-podman build -t docbox:0.4.1 .        # Windows 上建议加 --dns 223.5.5.5 --dns 119.29.29.29
+podman build -t docbox:0.4.4 .        # Windows 上建议加 --dns 223.5.5.5 --dns 119.29.29.29
 ```
 
 ## Windows 一键部署
 
 前置：Windows 10/11（x64），有网络（首次安装 Podman 和初始化虚拟机）。
 
-1. 把 `docbox-0.4.1-image.tar` 放到 `deploy\` 目录（或留在一键脚本同级）。
+1. 把 `docbox-0.4.4-image.tar` 放到 `deploy\` 目录（或留在一键脚本同级）。
 2. 右键 `install-windows.ps1` → **使用 PowerShell 运行**；或：
 
    ```powershell
@@ -108,7 +108,7 @@ podman build -t docbox:0.4.1 .        # Windows 上建议加 --dns 223.5.5.5 --d
 3. 脚本会自动：
    - 检测 podman，缺失则 `winget install RedHat.Podman`；
    - `podman machine init/start`（首次自动创建 4 核 / 6 GB / 80 GB 的虚拟机）；
-   - `podman load -i docbox-0.4.1-image.tar`；
+   - `podman load -i docbox-0.4.4-image.tar`；
    - 创建数据卷并以 `--restart=always` 启动容器；
    - 轮询 `/api/health`，就绪后打开浏览器。
 
@@ -135,7 +135,7 @@ sudo bash deploy/install-linux.sh --boot         # 额外生成 systemd 用户�
 
 ```bash
 curl http://127.0.0.1:3000/api/health
-# {"ok":true,"version":"0.4.1", ...}
+# {"ok":true,"version":"0.4.4", ...}
 podman logs -f docbox      # 查看启动日志
 ```
 
@@ -160,7 +160,7 @@ podman logs -f docbox      # 查看启动日志
 
 **视频解析抓不到 m3u8 / 提示「内置浏览器不可用」**：先用页面上的「内置浏览器 chromium」标签或 `curl http://127.0.0.1:3000/api/video/browser` 确认。容器里 chromium 随镜像安装（`DOCBOX_CHROME=/usr/bin/chromium`），启动参数已带 `--no-sandbox`（容器以 root 运行必须）和 `--disable-dev-shm-usage`（容器 `/dev/shm` 通常只有 64MB）。若改成 `--userns=keep-id` 以非 root 运行，请加 `-e DOCBOX_TMP_DIR=/data/tmp`，否则浏览器的工作目录不可写、嗅探会直接失败。
 
-**镜像多大**：`podman images docbox` 约 1.5~2 GB（含 Node 依赖、FFmpeg、MariaDB、SenseVoice/zipformer 语音模型）。
+**镜像多大**：`podman images docbox` 约 4.3 GB（含 Node 依赖、FFmpeg、Chromium、MariaDB、SenseVoice/zipformer 语音模型）。
 
 ## 已验证
 

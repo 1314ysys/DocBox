@@ -1,12 +1,12 @@
 ﻿# DocBox 一键部署（Windows / Podman）
 # 用法：右键「使用 PowerShell 运行」，或在 PowerShell 里执行：
 #   powershell -ExecutionPolicy Bypass -File .\install-windows.ps1
-# 可选参数：-Port 3000 -ImageTar .\docbox-0.4.1-image.tar -Volume docbox-data -NoBrowser
+# 可选参数：-Port 3000 -ImageTar .\docbox-0.4.4-image.tar -Volume docbox-data -NoBrowser
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
   [string]$ImageTar = "",
-  [string]$Image    = "docbox:0.4.1",
+  [string]$Image    = "docbox:0.4.4",
   [int]$Port        = 3000,
   [string]$Volume   = "docbox-data",
   [int]$Cpus        = 4,
@@ -77,10 +77,10 @@ if ($SkipLoad) {
 }
 if (-not $SkipLoad -and -not $ImageTar) {
   $candidates = @(
-    (Join-Path $PSScriptRoot "docbox-0.4.1-image.tar"),
-    (Join-Path $PSScriptRoot "docbox-0.4.1-image.tar.gz"),
-    (Join-Path $script:Root "docbox-0.4.1-image.tar"),
-    (Join-Path $script:Root "docbox-0.4.1-image.tar.gz")
+    (Join-Path $PSScriptRoot "docbox-0.4.4-image.tar"),
+    (Join-Path $PSScriptRoot "docbox-0.4.4-image.tar.gz"),
+    (Join-Path $script:Root "docbox-0.4.4-image.tar"),
+    (Join-Path $script:Root "docbox-0.4.4-image.tar.gz")
   ) + (Get-ChildItem -Path (Join-Path $script:Root "version") -Recurse -Include "docbox-*-image.tar","docbox-*-image.tar.gz" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
   $ImageTar = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 }
