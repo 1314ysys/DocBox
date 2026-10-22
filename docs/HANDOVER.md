@@ -14,30 +14,33 @@
 | 端口 | 应用 3000（可改）· 数据库 3306（仅本机/容器内） |
 | 默认账号 | root / root（首次登录后必须改） |
 | 数据位置 | 源码方式：docbox/uploads\|outputs\|tmp\|models\|.cache + MySQL；容器方式：卷 /data |
-| 规模 | 89 个工具（57 套件 + 34 原生 − 2 重复）· 186 项冒烟断言 · 94 项工具自检 |
-| 交付物 | 源码 zip/tar.gz · Podman 镜像 tar（3.89 GB）· Windows/Linux 一键部署脚本 |
+| 规模 | 89 个工具（57 套件 + 34 原生 − 2 重复）· 冒烟 192 项 · 工具自检 94 项 · UI 交互 12 项 |
+| 交付物 | 源码 zip/tar.gz（随仓库）· 阿里云 ACR 镜像 `images_dev:0.4.4` / `latest`（4.32 GB，仓库不含 tar，需要时 `podman save` 现导）· Windows/Linux 一键部署脚本（缺镜像时自动 pull ACR） |
 
 ---
 
 ## 1. 交付物清单
 
 ```
-version/0.3.0/
-├── docbox-0.3.0-image.tar   # Podman 镜像（podman save 导出，3.71 GB 文件 / 镜像 3.89 GB）
-├── docbox-0.3.0.zip         # 源码快照（含 deploy/、python/、docbox/）
-├── docbox-0.3.0.tar.gz      # 同上，Linux 用
+version/0.4.4/
+├── docbox-0.4.4.zip         # 源码快照（含 deploy/、python/、docbox/）
+├── docbox-0.4.4.tar.gz      # 同上，Linux 用
 ├── CHANGELOG.md             # 本版改动明细
-└── VERSION.json             # 版本元数据（测试结果、镜像 info、计数）
+└── VERSION.json             # 版本元数据（测试结果、镜像 ID / digest / sha256、计数）
 deploy/
-├── install-windows.ps1      # Windows 一键：装 podman → 初始化虚拟机 → load 镜像 → 起容器 → 健康检查 → 开浏览器
-├── install-linux.sh         # Linux 一键：apt/dnf/zypper/pacman 装 podman → load → 起容器
+├── install-windows.ps1      # Windows 一键：装 podman → 起虚拟机 → 取镜像（tar/本地/ACR 自动 pull）→ 起容器 → 健康检查 → 开浏览器
+├── install-linux.sh         # Linux 一键：apt/dnf/zypper/pacman 装 podman → 同上流程
+├── build-image.ps1 / .sh    # 从源码构建镜像（要改代码时才用）
 ├── docker-entrypoint.sh     # 容器入口：初始化 MariaDB → 建库建号 → 起应用
 ├── README.md                # 部署细节与参数
 └── models/                  # 语音模型（构建镜像时才需要，源码运行可选）
 docs/HANDOVER.md             # 本文
 ```
 
-> 镜像 tar 不进 git（.gitignore 已排除 version/**/*.tar*），发布时单独拷给接手人。
+> 镜像 tar（4.02 GiB）不进 git（.gitignore 排除 `version/**/*.tar`），仓库也不再保留副本：
+> 分发走阿里云 ACR（`podman pull` 免登录），离线场景用
+> `podman save --format docker-archive -o docbox-0.4.4-image.tar <镜像名>` 现导。
+> 历史版本归档（0.1.x～0.4.3）已从工作区清理，仍可在 git 历史与 tag 里取回：`git checkout v0.4.1 -- version/0.4.1`。
 
 ---
 
@@ -222,11 +225,27 @@ node scripts/tools-check.mjs http://127.0.0.1:3000 --only suite       # 只跑�
 
 ## 7. 发版流程（照做即可）
 
-1. 改版本号（四处，缺一不可）：
+1. 改版本号（六处，缺一不可）：
    - docbox/package.json 的 version
    - docbox/src/config.mjs 的 APP_VERSION
    - Dockerfile 顶部注释里的镜像 tag
-   - deploy/install-windows.ps1（Image、候选 tar 名）与 deploy/install-linux.sh（IMAGE、候选 tar 名）
+   - deploy/install-windows.ps1：`-Version` 默认值（0.4.4）与 `-Image` 默认值（docbox:0.4.4）
+   - deploy/install-linux.sh：`VERSION="0.4.4"` 与 `IMAGE="docbox:0.4.4"`
+   - deploy/build-image.ps1 的 `-Tag`、deploy/build-image.sh 的镜像名
+
+   改完自检（三条都要过）：
+   ```bash
+   grep -rn "0\.4\.4" deploy/install-*.{sh,ps1} deploy/build-image.* | head    # 版本号都换成了新值
+   bash -n deploy/install-linux.sh                                            # bash 语法
+   ```
+   ```powershell
+   $e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD\deploy\install-windows.ps1", [ref]$null, [ref]$e); $e.Count
+   # 输出 0 表示语法 OK
+   ```
+
+   > 一键部署脚本的镜像获取是**三级回退**：本地镜像包 → 本地已有镜像 → 阿里云 ACR 自动 `podman pull`
+   > （ACR 仓库地址在 `-Registry` / `REGISTRY` 里，换仓库只改这一处）。发版后务必**空环境跑一遍**：
+   > 无 tar、无本地镜像时直接执行脚本，能自动拉到新版本并起容器才算通过。离线场景用 `-NoPull` / `--no-pull`。
 2. 跑测试：npm run smoke，再跑 tools-check（宿主，可选容器）。
 3. 构建镜像（用干净上下文，避免 tar 期间文件变动报 archive/tar: write too long）：
 
@@ -297,6 +316,10 @@ podman exec docbox mariadb-dump -u root -proot docbox > docbox-db-backup.sql
 | podman build 报 archive/tar: write too long | 构建上下文打包时被写入（日志 / tmp） | 换干净目录做上下文，或用 .dockerignore 排除 |
 | 大镜像 podman save 出现 ssh EOF | 传输管道中断 | 虚拟机内先 save 落盘再 scp（见发版流程） |
 | 前端改了没生效 | 浏览器缓存 | 强制刷新（服务端已设 maxAge: 0 + etag） |
+| Windows 下脚本报 `Cannot connect to Podman` | Windows 客户端 ↔ podman 虚拟机的 ssh 通道挂起（闲置久了必现，4067 端口连不上，虚拟机本身还活着） | 0.4.4 起脚本会自检并自动 `podman machine stop/start` 后重试；手动同理：`podman machine stop; podman machine start`。应急可绕过客户端，直接 `wsl -d podman-machine-default -u user podman …` |
+| 部署脚本报「没有可用的 DocBox 镜像」 | 仓库不携带 4.3GB 镜像 tar，本机也没有该镜像，且 `-NoPull`/`--no-pull` 或网络不通 | 三条路选一：① 连网重跑（脚本自动 pull ACR）；② 放 `docbox-<ver>-image.tar` 到 `deploy/` 或仓库根目录，或 `--image-tar PATH`；③ `build-image.sh` 自建后加 `--skip-load` |
+| 启动容器报 `listen tcp4 :3000: bind: address already in use` | 端口被其他容器/进程占用（含上次测试残留的孤儿 `pasta` 网络进程） | 换端口：`--port 3100` / `-Port 3100`；排查占用：`ss -ltnp \| grep 3000`（虚拟机内），孤儿进程 `kill` 掉即可 |
+| 虚拟机里所有 `sudo podman` 命令都报 `toml: … expected value but found "docker"` | `/etc/containers/registries.conf.d/999-mirror.conf` 被镜像加速脚本写成了非法 TOML（值没加引号） | 把该文件的值补上双引号（`unqualified-search-registries = ["docker.io"]`、`prefix = "docker.io"`），或直接删掉该 drop-in 文件。rootless 不受影响，只有 rootful 会炸 |
 
 ---
 
