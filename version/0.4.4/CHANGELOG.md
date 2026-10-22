@@ -52,6 +52,8 @@
 - **镜像包有效性**：`podman load -i docbox-0.4.4-image.tar` → `Loaded image: localhost/docbox:0.4.4`（实测通过）
 - **容器内实跑**：`/api/health` → `{"ok":true,"version":"0.4.4","db":{"available":true}}`
 - 说明：镜像包体积超过 GitHub Release 单个资产 **2 GiB** 上限，因此不进 Release；离线分发走网盘/内网，或直接 `podman pull` ACR。
+- 本地已清理该 tar（占 4.02 GiB，仓库只保留源码），需要时重新导出即可：
+  `podman pull -q <ACR>:0.4.4 && podman save --format docker-archive -o docbox-0.4.4-image.tar localhost/…:0.4.4`（镜像 ID 与 config 摘要不变，sha256 仅在完全相同的导出方式下一致）。
 
 ## 7. 升级提示（同 0.4.3 段，无数据库结构变更）
 
