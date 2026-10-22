@@ -62,27 +62,63 @@ if (-not $machines.Trim()) {
 if ($LASTEXITCODE -ne 0) { Fail "podman 虚拟机启动失败，请运行 'podman machine start' 查看原因。" }
 Info "podman 虚拟机已就绪"
 
+# 2.5) 连通性预检：Windows 客户端 ↔ 虚拟机的 ssh 通道偶尔会挂（表现为 Cannot connect to Podman）
+function Test-PodmanUp {
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & $podman info --format "{{.Version.Version}}" *> $null
+    return ($LASTEXITCODE -eq 0)
+  } catch { return $false } finally { $ErrorActionPreference = $prev }
+}
+
+if (-not (Test-PodmanUp)) {
+  Warn "podman 客户端连不上虚拟机（ssh 通道故障，常见于长时间闲置后），尝试重启虚拟机 ..."
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  & $podman machine stop  *> $null
+  Start-Sleep -Seconds 3
+  & $podman machine start *> $null
+  $ErrorActionPreference = $prev
+  Start-Sleep -Seconds 5
+  if (-not (Test-PodmanUp)) {
+    Fail "podman 客户端仍连不上虚拟机。手动排查：podman machine stop; podman machine start; podman info（Windows 端偶发 ssh 通道挂起，重启虚拟机即可恢复）"
+  }
+  Info "虚拟机已重启，连接恢复"
+}
+
 # 3) 准备镜像：镜像包 → 本地已有 → 阿里云 ACR（依次回退）
 $norm = { param($s) "$s".Trim() -replace "^(localhost|docker\.io)/", "" }
 $targetRef = "${Registry}:${Version}"
 
 function Get-LocalImageNames {
-  $raw = @(& $podman images --format "{{.Repository}}:{{.Tag}}" 2>$null)
-  if (-not $raw.Count) {
-    Warn "podman 没能列出本地镜像（可能虚拟机的 podman.socket 挂了），尝试重启 podman.socket ..."
-    & $podman machine ssh "systemctl --user restart podman.socket" 2>$null | Out-Null
-    Start-Sleep -Seconds 5
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
     $raw = @(& $podman images --format "{{.Repository}}:{{.Tag}}" 2>$null)
-  }
-  return @($raw | ForEach-Object { & $norm $_ } | Where-Object { $_ -and $_ -notmatch "<none>" })
+    if (-not $raw.Count) {
+      Warn "podman 没能列出本地镜像（可能虚拟机的 podman.socket 挂了），尝试重启 podman.socket ..."
+      & $podman machine ssh "systemctl --user restart podman.socket" 2>$null | Out-Null
+      Start-Sleep -Seconds 5
+      $raw = @(& $podman images --format "{{.Repository}}:{{.Tag}}" 2>$null)
+    }
+    return @($raw | ForEach-Object { & $norm $_ } | Where-Object { $_ -and $_ -notmatch "<none>" })
+  } catch { return @() } finally { $ErrorActionPreference = $prev }
 }
 
 function Try-PullImage {
   if ($NoPull) { return $false }
   Info "本地没有可用镜像，尝试从阿里云 ACR 拉取：$targetRef（约 4.3 GB，首次较慢）..."
-  & $podman pull $targetRef
-  if ($LASTEXITCODE -ne 0) { return $false }
-  return $true
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & $podman pull $targetRef
+    if ($LASTEXITCODE -ne 0) {
+      Warn "podman pull 失败（退出码 $LASTEXITCODE）：可能网络不通或仓库需要登录"
+      return $false
+    }
+    return $true
+  } catch { Warn "podman pull 异常"; return $false } finally { $ErrorActionPreference = $prev }
 }
 
 if (-not $ImageTar) {
@@ -97,8 +133,11 @@ if (-not $ImageTar) {
 
 if (-not $SkipLoad -and $ImageTar -and (Test-Path $ImageTar)) {
   Info "载入镜像包：$ImageTar（首次需要 1~3 分钟）..."
+  $prevEA = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
   & $podman load -i $ImageTar
-  if ($LASTEXITCODE -ne 0) { Fail "podman load 失败，镜像包可能损坏；可改用 -NoPull:\$false 从 ACR 拉取" }
+  $loadRc = $LASTEXITCODE
+  $ErrorActionPreference = $prevEA
+  if ($loadRc -ne 0) { Fail "podman load 失败（退出码 $loadRc），镜像包可能损坏。删掉该镜像包后重跑本脚本会自动从 ACR 拉取" }
   Info "载入完成，使用镜像 $Image"
 } else {
   $have = Get-LocalImageNames
@@ -132,7 +171,12 @@ if ($exists -contains "docbox") {
 Info "启动容器（端口 $Port -> 3000）..."
 & $podman run -d --name docbox --restart=always `
   -p "${Port}:3000" -v "${Volume}:/data" $Image | Out-Null
-if ($LASTEXITCODE -ne 0) { Fail "容器启动失败，运行 'podman logs docbox' 查看原因" }
+$runRc = $LASTEXITCODE
+if ($runRc -ne 0) {
+  $ports = (& $podman ps -a --format "{{.Ports}}" 2>$null) -join " "
+  if ($ports -match ":$Port->") { Fail "端口 $Port 已被其他容器占用，换一个端口重跑，例如：-Port 3100" }
+  Fail "容器启动失败（退出码 $runRc），运行 'podman logs docbox' 查看原因"
+}
 
 # 6) 等待健康检查
 $url = "http://127.0.0.1:$Port"
