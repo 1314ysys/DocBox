@@ -263,8 +263,8 @@ git add -f version/0.3.0/docbox-0.3.0.zip version/0.3.0/docbox-0.3.0.tar.gz
 
 ```bash
 podman stop docbox && podman rm docbox
-podman load -i docbox-0.4.0-image.tar
-podman run -d --name docbox --restart=always -p 3000:3000 -v docbox-data:/data docbox:0.4.0
+podman load -i docbox-0.4.4-image.tar   # 或直接 podman pull 阿里云 ACR 镜像
+podman run -d --name docbox --restart=always -p 3000:3000 -v docbox-data:/data docbox:0.4.4
 ```
 
 数据在卷里，换镜像不丢；回滚 = 用旧 tar 重复上面三步。

@@ -3,7 +3,7 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.4.1` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 内置浏览器嗅探 + 批量下载任务队列**（贴网页链接自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与模块授权 · 192 项冒烟断言全通过
+`v0.4.4` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 内置浏览器嗅探 + 批量下载任务队列**（贴网页链接自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与**模块授权可点选** · 192 项冒烟断言 + 12 项 UI 交互断言全通过
 
 ---
 
@@ -13,17 +13,17 @@
 
 ### 从阿里云 ACR 拉镜像（最省事，不用下 4GB tar、不用构建）
 
-镜像发布在阿里云容器镜像服务（个人版）杭州实例：`crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev`（标签 `0.4.1` / `latest`）。
+镜像发布在阿里云容器镜像服务（个人版）杭州实例：`crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev`（标签 `0.4.4` / `latest`，两者同一镜像）。
 
 > 仓库现在是**公开**的，`podman pull` / `docker pull` **免登录**；若以后改成私有，先 `podman login crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`（用户名/密码见阿里云控制台「访问凭证」）。
-> 已发布 digest：`sha256:2647d5172afa3c4266eb717427c62ab06175f176fc1ff24f678f481828ec6ccf`（`0.4.1` 与 `latest` 同一镜像）。
+> 已发布 digest：`sha256:6a841d7a9dd9a1eefb9fdf22e2a1ff98d7c99108e2b179620b49353ef7bff476`（`0.4.4` 与 `latest` 同一镜像）。
 
 ```bash
 # 1) 拉镜像（国内直连，比从 GitHub 下 tar 快很多）
-podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1   # docker 同理
+podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4   # docker 同理
 
 # 2) 一键起容器（自动建数据卷、等健康检查、打印访问地址）
-sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.1 --skip-load
+sudo bash deploy/install-linux.sh --image crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4 --skip-load
 ```
 
 Windows 也是先 `podman pull` 再 `.\deploy\install-windows.ps1 -Image <镜像名> -SkipLoad`。
@@ -40,7 +40,7 @@ powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
 sudo bash deploy/install-linux.sh --port 3000
 ```
 
-- 镜像包 `version/0.4.1/docbox-0.4.1-image.tar`（`podman save` 导出，约 3.4GB），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
+- 镜像包 `podman save` 导出（约 4.3GB，按需自行生成：`podman save -o docbox-0.4.4-image.tar localhost/docbox:0.4.4`），脚本里 `podman load` 从本地载入，不依赖镜像仓库；
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
 - 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查。
 
