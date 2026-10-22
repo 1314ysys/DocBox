@@ -50,7 +50,7 @@ powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1
 镜像位置：`crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev`，标签 `0.4.4` / `latest`（同一镜像）。
 
 > 公开仓库，`podman pull` / `docker pull` **免登录**；若以后改成私有，先 `podman login crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`（用户名/密码见阿里云控制台「访问凭证」）。
-> 已发布 digest：`sha256:6a841d7a9dd9a1eefb9fdf22e2a1ff98d7c99108e2b179620b49353ef7bff476`（`0.4.4` 与 `latest` 同一镜像）。
+> 已发布 digest：`sha256:11ff0ab9d68eb6c7743cbb78959024758dc86fd6ade450c1f09e4a0865abdad4`（`0.4.4` 与 `latest` 同一镜像）。
 
 ```bash
 # 想手动拉也行（docker 同）

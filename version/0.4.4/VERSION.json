@@ -30,7 +30,8 @@
         "0.4.4",
         "latest"
       ],
-      "digest": "sha256:6a841d7a9dd9a1eefb9fdf22e2a1ff98d7c99108e2b179620b49353ef7bff476"
+      "digest": "sha256:11ff0ab9d68eb6c7743cbb78959024758dc86fd6ade450c1f09e4a0865abdad4",
+      "digestNote": "ACR 返回的 OCI manifest digest（0.4.4 与 latest 相同）；镜像 config 摘要 sha256:d44d957fd4ae5616aa5545f5a9f673781d6c693c62a2bb13f5fdd72aeeeccd0c"
     }
   },
   "tests": {

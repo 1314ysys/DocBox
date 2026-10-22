@@ -46,7 +46,7 @@
 | --- | --- | --- |
 | `docbox-0.4.4-image.tar` | 4 317 192 704 字节（4.02 GiB） | `podman save --format docker-archive` 导出，镜像 `localhost/docbox:0.4.4` / ID `d44d957fd4ae` / 4.32 GB |
 | `docbox-0.4.4.tar.gz` / `docbox-0.4.4.zip` | 1.8 MB / 1.9 MB | 源码快照（`git archive HEAD`），随仓库一起提交 |
-| 阿里云 ACR | — | `.../podman_images_dev/images_dev:0.4.4` 与 `:latest`，digest `sha256:6a841d7a9dd9a1eefb9fdf22e2a1ff98d7c99108e2b179620b49353ef7bff476` |
+| 阿里云 ACR | — | `.../podman_images_dev/images_dev:0.4.4` 与 `:latest`，digest `sha256:11ff0ab9d68eb6c7743cbb78959024758dc86fd6ade450c1f09e4a0865abdad4` |
 
 - **镜像包 SHA256**：`b5938d21bbae919729c09192f6c4353928f6d526518d0d2e06b6c5539a822e01`
 - **镜像包有效性**：`podman load -i docbox-0.4.4-image.tar` → `Loaded image: localhost/docbox:0.4.4`（实测通过）
