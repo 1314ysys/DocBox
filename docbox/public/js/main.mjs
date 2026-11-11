@@ -215,9 +215,28 @@ function wireSearch() {
   });
 }
 
+/* ---------------- 降级横幅 ---------------- */
+function showDegradedBanner(text) {
+  if (document.getElementById('degradedBanner')) return;
+  const el = document.createElement('div');
+  el.id = 'degradedBanner';
+  el.className = 'degraded-banner';
+  el.textContent = text;
+  document.body.prepend(el);
+}
+
 /* ---------------- 启动 ---------------- */
 async function boot() {
   await fetchMe();
+  // 数据库不可用：默认安全锁定（fail-closed），只提示原因，不放开任何接口
+  if (auth.mode === 'locked') {
+    renderLogin(boot, '本地数据库不可用：服务已进入安全锁定状态，所有接口拒绝访问。请检查 MySQL 后点「登录」重试或刷新页面。（账户与历史都保存在数据库里）', 'err');
+    return;
+  }
+  // 本机降级免登录（需 DOCBOX_OPEN_WITHOUT_DB=1 且仅 127.0.0.1）：横幅明确告知
+  if (auth.mode === 'open') {
+    showDegradedBanner('本地数据库不可用：当前为本机降级免登录模式（仅 127.0.0.1 可用，局域网/外网一律拒绝）。数据库恢复后约 30 秒内自动回到登录模式。');
+  }
   if (auth.enabled && !auth.user) {
     renderLogin(boot);
     return;

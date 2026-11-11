@@ -1,7 +1,7 @@
 import { login } from '../core/auth.mjs';
 import { esc } from '../core/dom.mjs';
 
-export function renderLogin(onSuccess, note = '') {
+export function renderLogin(onSuccess, note = '', tone = 'info') {
   const el = document.getElementById('loginScreen');
   if (!el) return;
   el.hidden = false;
@@ -11,7 +11,7 @@ export function renderLogin(onSuccess, note = '') {
         <div class="login-brand"><div class="brand-mark">DB</div><div><strong>文档百宝箱</strong><span>DocBox · 本地文档与图像工作台</span></div></div>
         <h1>登录到工作台</h1>
         <p class="login-sub">账户与权限保存在本机 MySQL，不上传任何服务器。</p>
-        ${note ? '<div class="login-note">' + esc(note) + '</div>' : ''}
+        ${note ? '<div class="login-note ' + (tone === 'err' ? 'login-note-err' : '') + '">' + esc(note) + '</div>' : ''}
         <form id="loginForm" autocomplete="on">
           <label class="fld"><span>账号</span><input id="loginUser" name="username" type="text" value="root" autocomplete="username" required></label>
           <label class="fld"><span>密码</span><input id="loginPass" name="password" type="password" autocomplete="current-password" required></label>

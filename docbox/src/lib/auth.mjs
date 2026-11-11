@@ -30,6 +30,28 @@ export function authEnabled() {
   return dbState().available;
 }
 
+/**
+ * 数据库不可用时的降级策略（v0.4.5 起 fail-closed）
+ * - 默认 locked：一律 503，绝不放开（CWE-636 修复）
+ * - 仅当显式设置 DOCBOX_OPEN_WITHOUT_DB=1 且请求来自本机 loopback 时，才允许 open（免登录）
+ *   —— 保留“本地桌面工具不会被自身故障锁死”的体验，但不会把局域网/公网暴露出去
+ */
+export function degradedOpenAllowed() {
+  return String(process.env.DOCBOX_OPEN_WITHOUT_DB || '') === '1';
+}
+
+export function isLoopback(req) {
+  const ip = String((req && (req.socket?.remoteAddress || req.ip)) || '');
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+/** 当前请求的鉴权模式：strict（正常）/ open（本机降级免登录）/ locked（降级且拒绝） */
+export function authModeFor(req) {
+  if (dbState().available) return 'strict';
+  if (req && isLoopback(req) && degradedOpenAllowed()) return 'open';
+  return 'locked';
+}
+
 /* ---------------- 密码 ---------------- */
 export function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -115,7 +137,13 @@ export function publicUser(user, modules) {
 
 /* ---------------- 中间件 ---------------- */
 export async function attachUser(req, _res, next) {
-  if (!authEnabled()) { req.user = null; req.userModules = ALL_MODULE_KEYS; req.authMode = 'open'; return next(); }
+  const mode = authModeFor(req);
+  req.authMode = mode;
+  if (mode !== 'strict') {
+    req.user = null;
+    req.userModules = mode === 'open' ? ALL_MODULE_KEYS : [];
+    return next();
+  }
   try {
     const sid = parseCookies(req.headers.cookie)[SESSION_COOKIE];
     if (sid) {
@@ -131,22 +159,39 @@ export async function attachUser(req, _res, next) {
   next();
 }
 
+export const DB_LOCKED_BODY = {
+  error: '本地数据库不可用，服务已进入安全锁定状态（所有接口拒绝访问）。请检查 MySQL 后重试。',
+  code: 'DB_UNAVAILABLE',
+};
+
+function guardMode(req) {
+  return req.authMode || authModeFor(req);
+}
+
 export function requireAuth(req, res, next) {
-  if (!authEnabled() || req.user) return next();
+  const mode = guardMode(req);
+  if (mode === 'open') return next();
+  if (mode === 'locked') return res.status(503).json(DB_LOCKED_BODY);
+  if (req.user) return next();
   return res.status(401).json({ error: '请先登录', code: 'UNAUTHORIZED' });
 }
 
 export function requireAdmin(req, res, next) {
-  if (!authEnabled()) return next();
+  const mode = guardMode(req);
+  if (mode === 'open') return next();
+  if (mode === 'locked') return res.status(503).json(DB_LOCKED_BODY);
   if (!req.user) return res.status(401).json({ error: '请先登录', code: 'UNAUTHORIZED' });
   if (req.user.role !== 'admin') return res.status(403).json({ error: '仅管理员可访问', code: 'FORBIDDEN' });
   return next();
 }
 
 export function requireModule(req, res, next) {
-  if (!authEnabled() || !req.user) return next();
   const mod = moduleForPath(req.path);
-  if (!mod) return next();
+  if (!mod) return next();              // 不属于任何模块的接口（如 /api/health）不受降级影响
+  const mode = guardMode(req);
+  if (mode === 'open') return next();
+  if (mode === 'locked') return res.status(503).json(DB_LOCKED_BODY);
+  if (!req.user) return next();
   if (req.user.role === 'admin') return next();
   if ((req.userModules || []).includes(mod)) return next();
   return res.status(403).json({ error: '当前账户没有该模块的访问权限', code: 'MODULE_FORBIDDEN', module: mod });

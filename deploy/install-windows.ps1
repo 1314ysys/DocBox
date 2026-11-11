@@ -2,12 +2,12 @@
 # 用法：右键「使用 PowerShell 运行」，或在 PowerShell 里执行：
 #   powershell -ExecutionPolicy Bypass -File .\install-windows.ps1
 # 默认流程：有镜像包就载入 → 没有就本地镜像 → 都没有就自动从阿里云 ACR 拉取（约 4.3GB）
-# 可选参数：-Port 3000 -ImageTar .\docbox-0.4.4-image.tar -Volume docbox-data -NoBrowser -NoPull
+# 可选参数：-Port 3000 -ImageTar .\docbox-0.4.5-image.tar -Volume docbox-data -NoBrowser -NoPull
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
   [string]$ImageTar = "",
-  [string]$Image    = "docbox:0.4.4",
+  [string]$Image    = "docbox:0.4.5",
   [int]$Port        = 3000,
   [string]$Volume   = "docbox-data",
   [int]$Cpus        = 4,
@@ -15,7 +15,7 @@ param(
   [switch]$NoBrowser,
   [switch]$SkipLoad,
   [string]$Registry = "crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev",
-  [string]$Version  = "0.4.4",
+  [string]$Version  = "0.4.5",
   [switch]$NoPull
 )
 

@@ -5,7 +5,9 @@
  * 依赖 docbox/testdata 下的样例文件与本地已启动的 server.mjs（默认账户 root/root）。
  */
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 // 期望版本号直接从 package.json 读，避免每次发版都要改测试
@@ -371,6 +373,77 @@ record('流式会话可关闭', closed.payload.closed === true, 0, String(closed
 await json('删除转写任务', 'DELETE', '/api/stt/job/' + sttJob.payload.id);
 await json('退出登录', 'POST', '/api/auth/logout');
 await post('退出后访问 app 被拒', '/api/app', { expectStatus: 401 });
+
+
+// ---------------- 降级安全（v0.4.5）：数据库不可用必须 fail-closed ----------------
+const DEGRADED_PORT = 3199;
+
+async function waitHealth(port, timeoutMs = 40000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 5000);
+      const r = await fetch('http://127.0.0.1:' + port + '/api/health', { signal: ac.signal });
+      clearTimeout(timer);
+      if (r.ok) return await r.json();
+    } catch { /* 还没起来 */ }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  return null;
+}
+
+async function runDegradedCase(openMode) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'docbox-degraded-'));
+  const env = {
+    ...process.env,
+    DOCBOX_PORT: String(DEGRADED_PORT),
+    DOCBOX_DB_HOST: '127.0.0.1',
+    DOCBOX_DB_PORT: '3399',          // 必然连不上，强制进入降级
+    DOCBOX_DATA_DIR: dir,
+    DOCBOX_TMP_DIR: path.join(dir, 'tmp'),
+  };
+  if (openMode) env.DOCBOX_OPEN_WITHOUT_DB = '1';
+  else delete env.DOCBOX_OPEN_WITHOUT_DB;
+  const base = 'http://127.0.0.1:' + DEGRADED_PORT;
+  const child = spawn(process.execPath, ['server.mjs'], {
+    cwd: path.resolve(__dirname, '..'), env, stdio: 'ignore',
+  });
+  try {
+    const health = await waitHealth(DEGRADED_PORT);
+    record('降级实例可启动', Boolean(health), 0, health ? 'authMode=' + health.authMode : '未就绪');
+    if (!health) return;
+    if (openMode) {
+      record('本机降级=open', health.authMode === 'open' && health.ok === false, 0, 'authMode=' + health.authMode + ' ok=' + health.ok);
+      const app = await fetch(base + '/api/app').catch(() => null);
+      record('open 模式本机可用', app && app.status === 200, 0, 'HTTP ' + (app ? app.status : 'ERR'));
+    } else {
+      record('降级默认 locked', health.authMode === 'locked' && health.ok === false, 0, 'authMode=' + health.authMode + ' ok=' + health.ok);
+      const app = await fetch(base + '/api/app').catch(() => null);
+      const body = app ? await app.json().catch(() => ({})) : {};
+      record('locked 拒绝 /api/app', Boolean(app) && app.status === 503 && body.code === 'DB_UNAVAILABLE', 0, 'HTTP ' + (app ? app.status : 'ERR'));
+      const tool = await fetch(base + '/api/suite/net/headers-gen', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: 'server=nginx&strict=true',
+      }).catch(() => null);
+      record('locked 拒绝工具调用', Boolean(tool) && tool.status === 503, 0, 'HTTP ' + (tool ? tool.status : 'ERR'));
+      const login = await fetch(base + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: 'root', password: 'root' }),
+      }).catch(() => null);
+      record('locked 登录返回 503', Boolean(login) && login.status === 503, 0, 'HTTP ' + (login ? login.status : 'ERR'));
+    }
+  } finally {
+    child.kill('SIGKILL');
+    await new Promise((r) => setTimeout(r, 300));
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+await runDegradedCase(false);
+await runDegradedCase(true);
 
 // ---------------- 汇总 ----------------
 const failed = results.filter((r) => !r.ok);

@@ -3,6 +3,7 @@ import { APP_VERSION, findEdge, findFont } from '../config.mjs';
 import { WATERMARK_TEMPLATES } from '../watermark-templates.mjs';
 import { PDF_TOOLS, MEDIA_TOOLS, NET_TOOLS } from '../tool-catalog.mjs';
 import { dbState } from '../lib/db.mjs';
+import { authModeFor } from '../lib/auth.mjs';
 import { mediaHealth } from '../lib/media.mjs';
 import { ah } from '../lib/async.mjs';
 import { ID_PRESETS } from './idphoto.mjs';
@@ -17,11 +18,16 @@ const TOOL_COUNT = SUITE_TOOL_COUNT + NATIVE_TOOL_COUNT - SKIPPED.size;
 
 export const metaRouter = express.Router();
 
-metaRouter.get('/api/health', ah(async (_req, res) => {
+metaRouter.get('/api/health', ah(async (req, res) => {
+  const authMode = req.authMode || authModeFor(req);
+  const db = dbState();
   res.json({
-    ok: true,
+    // 降级（locked / open）时顶层 ok 直接为 false：数据库故障必须在监控上一眼可见
+    ok: db.available === true,
     version: APP_VERSION,
-    db: dbState(),
+    authMode,
+    degraded: !db.available,
+    db,
     media: await mediaHealth(),
     font: Boolean(findFont()),
     edge: Boolean(findEdge()),
@@ -43,6 +49,7 @@ metaRouter.get('/api/app', ah(async (req, res) => {
     media: await mediaHealth(),
     auth: {
       enabled: dbState().available,
+      authMode: req.authMode || authModeFor(req),
       user: req.user ? { id: req.user.id, username: req.user.username, role: req.user.role, displayName: req.user.displayName || '' } : null,
       modules: req.userModules || [],
     },

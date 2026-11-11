@@ -2,21 +2,21 @@
 # DocBox 一键部署（Linux / Podman）
 # 用法：sudo bash install-linux.sh [选项]
 #   --port 3000          宿主机端口
-#   --image-tar PATH     镜像包（默认脚本目录里的 docbox-0.4.4-image.tar）
+#   --image-tar PATH     镜像包（默认脚本目录里的 docbox-0.4.5-image.tar）
 #   --volume NAME        数据卷名（默认 docbox-data）
 #   --data-dir /srv/docbox   改用绑定的数据目录（替代数据卷）
 #   --boot               生成 systemd 用户服务并开机自启（quadlet）
 #   --no-browser         不尝试打开浏览器
 #   --skip-load          镜像已在本机（自己构建过），跳过载入镜像包
 #   --registry REPO      ACR 仓库地址（默认本项目的阿里云仓库）
-#   --version X.Y.Z      镜像标签（默认 0.4.4）
+#   --version X.Y.Z      镜像标签（默认 0.4.5）
 #   --no-pull            禁止自动 podman pull（完全离线时用）
 # 默认顺序：镜像包 → 本地已有镜像 → 阿里云 ACR 自动拉取（约 4.3GB）
 set -euo pipefail
 
 PORT=3000
-VERSION="0.4.4"
-IMAGE="docbox:0.4.4"
+VERSION="0.4.5"
+IMAGE="docbox:0.4.5"
 REGISTRY="crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev"
 NO_PULL=0
 SKIP_LOAD=0

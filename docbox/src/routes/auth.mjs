@@ -1,7 +1,7 @@
 import express from 'express';
 import { ah } from '../lib/async.mjs';
 import {
-  authEnabled, verifyPassword, hashPassword, startSession, endSession,
+  authEnabled, authModeFor, verifyPassword, hashPassword, startSession, endSession,
   checkLoginThrottle, recordLoginFail, clearLoginFails, publicUser, modulesForUser,
 } from '../lib/auth.mjs';
 import { findUserByUsername, findUserById, getUserModules, updateUserPassword, deleteUserSessions } from '../lib/db.mjs';
@@ -13,7 +13,21 @@ function denyLogin(res, message) {
 }
 
 authRouter.post('/api/auth/login', ah(async (req, res) => {
-  if (!authEnabled()) return res.status(503).json({ error: '本地数据库不可用，暂无法登录（已自动进入免登录模式）' });
+  const mode = authModeFor(req);
+  if (mode === 'locked') {
+    return res.status(503).json({
+      error: '本地数据库不可用，服务已进入安全锁定状态（外部访问一律拒绝），无法登录。请检查 MySQL 后重试。',
+      code: 'DB_UNAVAILABLE',
+      authMode: 'locked',
+    });
+  }
+  if (mode === 'open') {
+    return res.status(503).json({
+      error: '本地数据库不可用，当前为本机降级模式（免登录，仅 127.0.0.1 可用）。数据库恢复后自动回到登录模式。',
+      code: 'DB_UNAVAILABLE',
+      authMode: 'open',
+    });
+  }
   const username = String(req.body?.username || '').trim();
   const password = String(req.body?.password || '');
   if (!username || !password) return res.status(400).json({ error: '请输入账号和密码' });
@@ -38,13 +52,20 @@ authRouter.post('/api/auth/logout', ah(async (req, res) => {
 }));
 
 authRouter.get('/api/auth/me', ah(async (req, res) => {
-  if (!authEnabled()) return res.json({ ok: true, authEnabled: false, user: null, modules: [] });
-  if (!req.user) return res.json({ ok: true, authEnabled: true, user: null, modules: [] });
-  res.json({ ok: true, authEnabled: true, user: publicUser(req.user, req.userModules) });
+  const mode = req.authMode || authModeFor(req);
+  const dbAvailable = Boolean(authEnabled());
+  if (mode === 'locked') {
+    return res.json({ ok: true, authEnabled: true, authMode: 'locked', dbAvailable, user: null, modules: [] });
+  }
+  if (mode === 'open') {
+    return res.json({ ok: true, authEnabled: false, authMode: 'open', dbAvailable, user: null, modules: [] });
+  }
+  if (!req.user) return res.json({ ok: true, authEnabled: true, authMode: 'strict', dbAvailable, user: null, modules: [] });
+  res.json({ ok: true, authEnabled: true, authMode: 'strict', dbAvailable, user: publicUser(req.user, req.userModules) });
 }));
 
 authRouter.post('/api/auth/password', ah(async (req, res) => {
-  if (!authEnabled()) return res.status(503).json({ error: '数据库不可用' });
+  if (!authEnabled()) return res.status(503).json({ error: '本地数据库不可用，暂无法修改密码', code: 'DB_UNAVAILABLE' });
   if (!req.user) return res.status(401).json({ error: '请先登录', code: 'UNAUTHORIZED' });
   const current = String(req.body?.current || '');
   const next = String(req.body?.next || '');

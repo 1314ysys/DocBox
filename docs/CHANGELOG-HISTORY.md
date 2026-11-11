@@ -1,7 +1,7 @@
 # DocBox 历史变更日志（0.1.1 ～ 0.3.2）
 
 > 本文件收录 0.3.2 及更早版本的详细变更，README 只保留 0.4.x 近期变更。
-> 更早的逐版本明细见 `version/0.4.4/CHANGELOG.md` 与各版本 tag（`git tag -l`）。
+> 更早的逐版本明细见 `version/0.4.5/CHANGELOG.md` 与各版本 tag（`git tag -l`）。
 
 ## 0.3.2 有什么变化
 

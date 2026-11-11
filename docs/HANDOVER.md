@@ -15,16 +15,16 @@
 | 默认账号 | root / root（首次登录后必须改） |
 | 数据位置 | 源码方式：docbox/uploads\|outputs\|tmp\|models\|.cache + MySQL；容器方式：卷 /data |
 | 规模 | 89 个工具（57 套件 + 34 原生 − 2 重复）· 冒烟 192 项 · 工具自检 94 项 · UI 交互 12 项 |
-| 交付物 | 源码 zip/tar.gz（随仓库）· 阿里云 ACR 镜像 `images_dev:0.4.4` / `latest`（4.32 GB，仓库不含 tar，需要时 `podman save` 现导）· Windows/Linux 一键部署脚本（缺镜像时自动 pull ACR） |
+| 交付物 | 源码 zip/tar.gz（随仓库）· 阿里云 ACR 镜像 `images_dev:0.4.5` / `latest`（4.32 GB，仓库不含 tar，需要时 `podman save` 现导）· Windows/Linux 一键部署脚本（缺镜像时自动 pull ACR） |
 
 ---
 
 ## 1. 交付物清单
 
 ```
-version/0.4.4/
-├── docbox-0.4.4.zip         # 源码快照（含 deploy/、python/、docbox/）
-├── docbox-0.4.4.tar.gz      # 同上，Linux 用
+version/0.4.5/
+├── docbox-0.4.5.zip         # 源码快照（含 deploy/、python/、docbox/）
+├── docbox-0.4.5.tar.gz      # 同上，Linux 用
 ├── CHANGELOG.md             # 本版改动明细
 └── VERSION.json             # 版本元数据（测试结果、镜像 ID / digest / sha256、计数）
 deploy/
@@ -39,7 +39,7 @@ docs/HANDOVER.md             # 本文
 
 > 镜像 tar（4.02 GiB）不进 git（.gitignore 排除 `version/**/*.tar`），仓库也不再保留副本：
 > 分发走阿里云 ACR（`podman pull` 免登录），离线场景用
-> `podman save --format docker-archive -o docbox-0.4.4-image.tar <镜像名>` 现导。
+> `podman save --format docker-archive -o docbox-0.4.5-image.tar <镜像名>` 现导。
 > 历史版本归档（0.1.x～0.4.3）已从工作区清理，仍可在 git 历史与 tag 里取回：`git checkout v0.4.1 -- version/0.4.1`。
 
 ---
@@ -117,6 +117,18 @@ npm start                        # http://127.0.0.1:3000
 | DOCBOX_STT_MODEL / DOCBOX_STT_STREAM_MODEL | 内置路径 | 覆写 Whisper / zipformer 模型 |
 | DOCBOX_YTDLP | yt-dlp | yt-dlp 可执行文件路径（视频解析引擎） |
 | ORT_LOGGING_LEVEL | 空 | 设为 error 可压掉 onnxruntime 噪音日志 |
+| DOCBOX_OPEN_WITHOUT_DB | 空 | **0.4.5 安全开关**：数据库不可用时是否允许本机（仅 127.0.0.1）免登录降级。默认关闭 = 安全锁定（所有接口 503）。设为 `1` 时只有本机请求放行，局域网/外网一律拒绝 |
+
+### 鉴权模式（0.4.5 起，fail-closed）
+
+| 模式 | 触发条件 | 行为 |
+| --- | --- | --- |
+| `strict` | 数据库可用 | 正常登录 + 角色/模块校验 |
+| `locked`（默认降级） | 数据库不可用，且未设 `DOCBOX_OPEN_WITHOUT_DB=1` | 受保护接口一律 **503** `{code:'DB_UNAVAILABLE'}`；`/api/health` 仍 200 但 `ok:false, authMode:'locked'`；WebSocket 直接断开 |
+| `open`（显式本机降级） | 数据库不可用 + `DOCBOX_OPEN_WITHOUT_DB=1` + 请求来自 loopback | 免登录可用全部工具（仅本机）；`/api/health` 报 `authMode:'open', ok:false` |
+
+> 数据库恢复后服务**每 30 秒自动重试**，连上即回到 `strict`，无需重启进程。
+> **升级注意**：0.4.5 及以前数据库不可用会「全部放行」（fail-open，CWE-636）。若你的部署依赖该行为（例如数据库常年不装、只当本机工具用），启动时须显式加 `DOCBOX_OPEN_WITHOUT_DB=1`，否则升级后所有接口会返回 503。
 
 ---
 
@@ -229,8 +241,8 @@ node scripts/tools-check.mjs http://127.0.0.1:3000 --only suite       # 只跑�
    - docbox/package.json 的 version
    - docbox/src/config.mjs 的 APP_VERSION
    - Dockerfile 顶部注释里的镜像 tag
-   - deploy/install-windows.ps1：`-Version` 默认值（0.4.4）与 `-Image` 默认值（docbox:0.4.4）
-   - deploy/install-linux.sh：`VERSION="0.4.4"` 与 `IMAGE="docbox:0.4.4"`
+   - deploy/install-windows.ps1：`-Version` 默认值（0.4.5）与 `-Image` 默认值（docbox:0.4.5）
+   - deploy/install-linux.sh：`VERSION="0.4.5"` 与 `IMAGE="docbox:0.4.5"`
    - deploy/build-image.ps1 的 `-Tag`、deploy/build-image.sh 的镜像名
 
    改完自检（三条都要过）：
@@ -282,8 +294,8 @@ git add -f version/0.3.0/docbox-0.3.0.zip version/0.3.0/docbox-0.3.0.tar.gz
 
 ```bash
 podman stop docbox && podman rm docbox
-podman load -i docbox-0.4.4-image.tar   # 或直接 podman pull 阿里云 ACR 镜像
-podman run -d --name docbox --restart=always -p 3000:3000 -v docbox-data:/data docbox:0.4.4
+podman load -i docbox-0.4.5-image.tar   # 或直接 podman pull 阿里云 ACR 镜像
+podman run -d --name docbox --restart=always -p 3000:3000 -v docbox-data:/data docbox:0.4.5
 ```
 
 数据在卷里，换镜像不丢；回滚 = 用旧 tar 重复上面三步。
@@ -316,9 +328,11 @@ podman exec docbox mariadb-dump -u root -proot docbox > docbox-db-backup.sql
 | podman build 报 archive/tar: write too long | 构建上下文打包时被写入（日志 / tmp） | 换干净目录做上下文，或用 .dockerignore 排除 |
 | 大镜像 podman save 出现 ssh EOF | 传输管道中断 | 虚拟机内先 save 落盘再 scp（见发版流程） |
 | 前端改了没生效 | 浏览器缓存 | 强制刷新（服务端已设 maxAge: 0 + etag） |
-| Windows 下脚本报 `Cannot connect to Podman` | Windows 客户端 ↔ podman 虚拟机的 ssh 通道挂起（闲置久了必现，4067 端口连不上，虚拟机本身还活着） | 0.4.4 起脚本会自检并自动 `podman machine stop/start` 后重试；手动同理：`podman machine stop; podman machine start`。应急可绕过客户端，直接 `wsl -d podman-machine-default -u user podman …` |
+| Windows 下脚本报 `Cannot connect to Podman` | Windows 客户端 ↔ podman 虚拟机的 ssh 通道挂起（闲置久了必现，4067 端口连不上，虚拟机本身还活着） | 0.4.5 起脚本会自检并自动 `podman machine stop/start` 后重试；手动同理：`podman machine stop; podman machine start`。应急可绕过客户端，直接 `wsl -d podman-machine-default -u user podman …` |
 | 部署脚本报「没有可用的 DocBox 镜像」 | 仓库不携带 4.3GB 镜像 tar，本机也没有该镜像，且 `-NoPull`/`--no-pull` 或网络不通 | 三条路选一：① 连网重跑（脚本自动 pull ACR）；② 放 `docbox-<ver>-image.tar` 到 `deploy/` 或仓库根目录，或 `--image-tar PATH`；③ `build-image.sh` 自建后加 `--skip-load` |
 | 启动容器报 `listen tcp4 :3000: bind: address already in use` | 端口被其他容器/进程占用（含上次测试残留的孤儿 `pasta` 网络进程） | 换端口：`--port 3100` / `-Port 3100`；排查占用：`ss -ltnp \| grep 3000`（虚拟机内），孤儿进程 `kill` 掉即可 |
+| 升级 0.4.5 后所有接口 503 / `code:DB_UNAVAILABLE` | 数据库不可用（0.4.5 起默认安全锁定，不再放行） | 先看 `/api/health` 的 `db.error`；修好数据库后 30 秒内自动恢复。若本机使用且不需要数据库，启动加 `DOCBOX_OPEN_WITHOUT_DB=1`（仅 loopback 生效） |
+| `/api/health` 返回 `ok:false` 但页面还能开 | 正常：降级时顶层 ok 为 false，方便监控告警；只有 `authMode:'strict'` 才是完全健康 | 按上一条修数据库 |
 | 虚拟机里所有 `sudo podman` 命令都报 `toml: … expected value but found "docker"` | `/etc/containers/registries.conf.d/999-mirror.conf` 被镜像加速脚本写成了非法 TOML（值没加引号） | 把该文件的值补上双引号（`unqualified-search-registries = ["docker.io"]`、`prefix = "docker.io"`），或直接删掉该 drop-in 文件。rootless 不受影响，只有 rootful 会炸 |
 
 ---

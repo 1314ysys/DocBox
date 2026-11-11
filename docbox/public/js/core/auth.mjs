@@ -1,6 +1,8 @@
 // 客户端登录态（与 /api/auth/me 同步）
 export const auth = {
   enabled: false,
+  mode: 'strict',       // strict | open（本机降级）| locked（安全锁定）
+  dbAvailable: true,
   user: null,
   modules: [],
 };
@@ -18,6 +20,8 @@ export function can(mod) {
 
 export function applyMe(me) {
   auth.enabled = Boolean(me.authEnabled);
+  auth.mode = me.authMode || 'strict';
+  auth.dbAvailable = me.dbAvailable !== false;
   auth.user = me.user || null;
   auth.modules = me.user?.modules || [];
   return auth;

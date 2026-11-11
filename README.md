@@ -3,7 +3,7 @@
 **单进程、单端口、数据不出本机**的文档 / 图片 / 音视频 / 网络安全工作台。  
 所有处理都在本机 Node 进程内完成（ffmpeg 仅作为子进程调用），任务记录写入本地 MySQL。
 
-`v0.4.4` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 内置浏览器嗅探 + 批量下载任务队列**（贴网页链接自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与**模块授权可点选** · 192 项冒烟断言 + 12 项 UI 交互断言全通过
+`v0.4.5` · 89 个可用工具 · 网络安全改为**浏览器本机发起** · OCR 支持**中英混排 + 条码/二维码** · **视频网站解析 + 内置浏览器嗅探 + 批量下载任务队列**（贴网页链接自动抓 m3u8，B 站 / YouTube / 爱奇艺 / 腾讯 / 优酷） · SSH/Telnet 网页终端 · SenseVoice 流式识别 · 全类型文件预览 · 账户角色与**模块授权可点选** · 数据库降级默认**安全锁定**（fail-closed）· 200 项冒烟断言 + 12 项 UI 交互断言全通过
 
 ---
 
@@ -12,7 +12,7 @@
 - [一键部署（Podman 容器，推荐）](#一键部署podman-容器推荐)
 - [快速开始（从源码运行）](#快速开始)
 - [本地数据库](#本地数据库)
-- [近期变更（0.4.x）](#044-有什么变化)
+- [近期变更（0.4.x）](#045-有什么变化)
 - [账户与权限](#账户与权限)
 - [文档工具（15 项）](#文档工具15-项)
 - [工具清单（89 项可用）](#工具清单89-项可用)
@@ -44,34 +44,34 @@ sudo bash deploy/install-linux.sh
 
 | 方式 | 怎么用 | 适合 |
 | --- | --- | --- |
-| **镜像包**（优先） | 把 `docbox-0.4.4-image.tar` 放到 `deploy/` 或仓库根目录；或 `-ImageTar PATH` / `--image-tar PATH` | 内网 / 无外网 |
+| **镜像包**（优先） | 把 `docbox-0.4.5-image.tar` 放到 `deploy/` 或仓库根目录；或 `-ImageTar PATH` / `--image-tar PATH` | 内网 / 无外网 |
 | **本地已有镜像** | 自己构建过：`-SkipLoad` / `--skip-load` | 改代码后重装 |
-| **阿里云 ACR**（兜底/默认） | 脚本自动 `podman pull`；也可手动：`podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4` | 有网，最省事 |
+| **阿里云 ACR**（兜底/默认） | 脚本自动 `podman pull`；也可手动：`podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.5` | 有网，最省事 |
 
 ```bash
-# ACR 地址（标签 0.4.4 / latest 是同一镜像；docker 同理）
-podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4
+# ACR 地址（标签 0.4.5 / latest 是同一镜像；docker 同理）
+podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.5
 ```
 
 > 公开仓库，`podman pull` / `docker pull` **免登录**；若以后改成私有，先 `podman login crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`（用户名/密码见阿里云控制台「访问凭证」）。
-> 已发布 digest：`sha256:11ff0ab9d68eb6c7743cbb78959024758dc86fd6ade450c1f09e4a0865abdad4`（`0.4.4` 与 `latest` 同一镜像）。
-> 想自己核对：`podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.4` 后
+> 已发布 digest：`sha256:11ff0ab9d68eb6c7743cbb78959024758dc86fd6ade450c1f09e4a0865abdad4`（`0.4.5` 与 `latest` 同一镜像）。
+> 想自己核对：`podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.5` 后
 > `podman image inspect --format '{{.Id}}' …` 应得到 `sha256:d44d957fd4ae…`（镜像 config 摘要），
 > 与 `latest` 拉下来的是同一个 ID。
 
 ### 从源码构建镜像（要改代码时才需要）
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\deploy\build-image.ps1     # 构建 docbox:0.4.4
+powershell -ExecutionPolicy Bypass -File .\deploy\build-image.ps1     # 构建 docbox:0.4.5
 powershell -ExecutionPolicy Bypass -File .\deploy\install-windows.ps1 -SkipLoad
 ```
 
 ```bash
-bash deploy/build-image.sh          # 约 10~20 分钟，产物 docbox:0.4.4
+bash deploy/build-image.sh          # 约 10~20 分钟，产物 docbox:0.4.5
 bash deploy/install-linux.sh --skip-load
 ```
 
-- 离线 tar 不随仓库分发（4.3 GB，超过 GitHub 单文件限制）：需要时 `podman save --format docker-archive -o docbox-0.4.4-image.tar <镜像名>` 自行导出；脚本会自动捡 `deploy/`、仓库根目录、`version/*/` 下的 `docbox-*-image.tar`；
+- 离线 tar 不随仓库分发（4.3 GB，超过 GitHub 单文件限制）：需要时 `podman save --format docker-archive -o docbox-0.4.5-image.tar <镜像名>` 自行导出；脚本会自动捡 `deploy/`、仓库根目录、`version/*/` 下的 `docbox-*-image.tar`；
 - 数据卷 `docbox-data` → `/data`（MariaDB、上传、产物），删容器不丢数据；
 - 默认账号 `root / root`，端口 3000，`/api/health` 用于健康检查；
 - 常用参数：`-Port`/`--port`、`-Volume`/`--volume`、`--data-dir`（改用绑定目录）、`--boot`（Linux 开机自启 quadlet）、`--no-pull`（完全离线）。
@@ -136,6 +136,29 @@ npm run smoke        # 192 项冒烟检查（需服务已启动）
 - `sessions(sid, user_id, ip, ua, expires_at)` — 登录会话
 
 > 想换库名/密码，改 `docbox/src/config.mjs` 的 `DB` 或设环境变量即可。
+
+## 0.4.5 有什么变化
+
+### 安全修复：数据库不可用时不再「全部放行」（fail-closed）
+
+0.4.4 及以前，数据库连不上会进入「免登录模式」——**所有接口放行、全模块可用**。这是为单机桌面场景设计的兜底，但一旦容器化/暴露到局域网，就变成「数据库一坏 = 认证全绕过」，且无任何提示、不会自动恢复（CWE-636 Not Failing Securely）。
+
+现在改为三态：
+
+| 模式 | 条件 | 行为 |
+| --- | --- | --- |
+| `strict` | 数据库可用 | 正常登录 + 角色/模块校验 |
+| `locked`（默认降级） | 数据库不可用 | 受保护接口一律 **503** `{code:'DB_UNAVAILABLE'}`；WebSocket 直接断开 |
+| `open`（显式本机降级） | 数据库不可用 + `DOCBOX_OPEN_WITHOUT_DB=1` + 来自 127.0.0.1 | 免登录可用（仅本机），局域网/外网仍 503 |
+
+配套改动：
+
+- **自动恢复**：数据库不可用时每 30 秒重试连接，连上即回到严格模式，无需重启进程；
+- **让故障可见**：`/api/health` 新增 `authMode` / `degraded`，降级时顶层 `ok` 为 **false**（0.4.4 及以前照样返回 true，监控看不出问题）；
+- **界面提示**：锁定态登录页显示红色原因说明；本机降级态顶部显示橙色横幅；
+- **回归测试**：冒烟新增 8 条断言——数据库不可用时 `/api/app`、工具调用、登录必须是 503，`/api/health` 必须 200 且 `authMode:'locked'`。
+
+> 升级注意：如果你的部署一直没装数据库、靠「免登录」使用，升级后需显式加 `DOCBOX_OPEN_WITHOUT_DB=1` 才能恢复本机免登录（仍然是仅本机）。
 
 ## 0.4.4 有什么变化
 
@@ -322,10 +345,10 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 
 | 检查 | 结果 |
 | --- | --- |
-| 宿主 `npm run smoke` | **192 / 192 通过**（登录权限 / 图片 / PDF 基础与套件 / 文档 / 预览 / 音视频 / 网络安全 / 终端 / 转写 / 数据库 / 其它） |
+| 宿主 `npm run smoke` | **200 / 200 通过**（含 8 条降级安全断言）（登录权限 / 图片 / PDF 基础与套件 / 文档 / 预览 / 音视频 / 网络安全 / 终端 / 转写 / 数据库 / 其它） |
 | 宿主 `npm run tools:check` | **94 / 94**（57 个套件工具 + 37 个原生工具，逐个真跑） |
 | `npm run ui:check` | **12 / 12**（无头 Edge 真实鼠标事件：选区 → 裁剪 → 导出尺寸一致） |
-| 容器 `docbox:0.4.4` | `/api/health` → `{"ok":true,"version":"0.4.4","db":{"available":true}}`，MariaDB 10.11.19 正常初始化 |
+| 容器 `docbox:0.4.5` | `/api/health` → `{"ok":true,"version":"0.4.5","authMode":"strict","db":{"available":true}}`，MariaDB 10.11.19 正常初始化 |
 | 容器内无头浏览器 | Chromium 155 `--headless=new` 可用，`sniffMedia()` 从本地测试页抓到 `.m3u8 [200]`（视频站解析的兜底链路真实有效） |
 | 一键部署（空环境实测） | Windows：一条命令自动 pull 4.3 GB → 起容器 → 健康检查通过；Linux：同流程 215 秒，镜像已在本地时 8 秒 |
 | 浏览器实测 | 首页 89 张卡片、7 类预览、OCR、播放器、Markdown 导出、公文排版、账户权限，无控制台报错 |
@@ -334,7 +357,8 @@ version/                   # 版本基线（VERSION.json + CHANGELOG.md + 源码
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
-| **0.4.4** | 2026-10-22 | 账户模块授权可点选（胶囊联动 / 已选计数 / 角色联动 / 键盘可操作）；成品目录容器路径说明；一键部署脚本支持 ACR 自动拉取 + ssh 通道自愈；镜像推阿里云 ACR |
+| **0.4.5** | 2026-11-11 | **安全修复**：数据库不可用时默认安全锁定（fail-closed，修 CWE-636 免登录绕过）+ 30 秒自动重连恢复 + `/api/health` 暴露 `authMode`/`degraded` + 界面降级提示 + 8 条降级回归断言；提供 `DOCBOX_OPEN_WITHOUT_DB=1` 本机降级开关 |
+| 0.4.4 | 2026-10-22 | 账户模块授权可点选（胶囊联动 / 已选计数 / 角色联动 / 键盘可操作）；成品目录容器路径说明；一键部署脚本支持 ACR 自动拉取 + ssh 通道自愈；镜像推阿里云 ACR |
 | 0.4.3 | 2026-10-21 | 网络工具去第三方依赖：RDAP/WHOIS 直连权威 + 本地缓存，子域名改本地字典爆破（c-ares 并发、泛解析识别、快速失败） |
 | 0.4.2 | 2026-10-21 | 水印模板扩到 11 套（通用品牌 / 考勤打卡 / 工程记录 / 自定义）+ 海拔方位角等字段；图片编辑器选区裁剪重做；新增 `npm run ui:check` |
 | 0.4.1 | 2026-10-21 | 成品保留策略与定时清理；内置浏览器嗅探（抓 JS 动态 m3u8） |
