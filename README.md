@@ -54,9 +54,9 @@ podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_im
 ```
 
 > 公开仓库，`podman pull` / `docker pull` **免登录**；若以后改成私有，先 `podman login crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com`（用户名/密码见阿里云控制台「访问凭证」）。
-> 已发布 digest：`sha256:11ff0ab9d68eb6c7743cbb78959024758dc86fd6ade450c1f09e4a0865abdad4`（`0.4.5` 与 `latest` 同一镜像）。
+> 已发布 digest：`sha256:5b206384585db8e0e3d1461709f293b4eb364aafbd3f8e33f0f6bf6ac11304e8`（`0.4.5` 与 `latest` 同一镜像）。
 > 想自己核对：`podman pull crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev:0.4.5` 后
-> `podman image inspect --format '{{.Id}}' …` 应得到 `sha256:d44d957fd4ae…`（镜像 config 摘要），
+> `podman image inspect --format '{{.Id}}' …` 应得到 `sha256:9d0ff0649d42…`（镜像 config 摘要），
 > 与 `latest` 拉下来的是同一个 ID。
 
 ### 从源码构建镜像（要改代码时才需要）

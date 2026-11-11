@@ -16,5 +16,30 @@
     "toolsCheck": "94 / 94",
     "uiCheck": "12 / 12"
   },
-  "breaking": "数据库长期不可用且依赖免登录的部署需加 DOCBOX_OPEN_WITHOUT_DB=1"
+  "breaking": "数据库长期不可用且依赖免登录的部署需加 DOCBOX_OPEN_WITHOUT_DB=1",
+  "artifacts": {
+    "image": {
+      "registry": "crpi-muahgwhixaz856an.cn-hangzhou.personal.cr.aliyuncs.com/podman_images_dev/images_dev",
+      "tags": [
+        "0.4.5",
+        "latest"
+      ],
+      "digest": "sha256:5b206384585db8e0e3d1461709f293b4eb364aafbd3f8e33f0f6bf6ac11304e8",
+      "configDigest": "sha256:9d0ff0649d42645f1842bf18cc6cbfad435dc5e298a15a8a9bfd6ff2baf90d84",
+      "id": "9d0ff0649d42",
+      "size": "4.26 GB",
+      "builtOn": "NAS 192.168.99.18 (docker 29.7.2, Debian 13 x86_64)",
+      "buildArgs": {
+        "APT_MIRROR": "mirrors.tuna.tsinghua.edu.cn",
+        "NPM_REGISTRY": "https://registry.npmmirror.com/"
+      }
+    },
+    "deployed": {
+      "host": "192.168.99.18",
+      "port": 3000,
+      "container": "docbox",
+      "volume": "docbox-data",
+      "compose": "/opt/docbox/docker-compose.yml"
+    }
+  }
 }

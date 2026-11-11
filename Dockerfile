@@ -3,6 +3,12 @@
 # 运行：podman run -d --name docbox -p 3000:3000 -v docbox-data:/data docbox:0.4.5
 FROM docker.m.daocloud.io/library/node:22-bookworm-slim
 
+# 构建加速（可选）：墙内构建时传
+#   --build-arg APT_MIRROR=mirrors.tuna.tsinghua.edu.cn
+#   --build-arg NPM_REGISTRY=https://registry.npmmirror.com/
+ARG APT_MIRROR=deb.debian.org
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
@@ -18,7 +24,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DOCBOX_DB_NAME=docbox
 
 # 系统依赖：FFmpeg、中文字体、Python（APM 降噪）、MariaDB、tini
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN if [ "$APT_MIRROR" != "deb.debian.org" ]; then \
+      sed -i "s|deb.debian.org|$APT_MIRROR|g" /etc/apt/sources.list 2>/dev/null || true; \
+      sed -i "s|deb.debian.org|$APT_MIRROR|g" /etc/apt/sources.list.d/*.sources 2>/dev/null || true; \
+    fi \
+ && apt-get -o Acquire::Retries=5 update \
+ && apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
       ffmpeg traceroute iproute2 fonts-wqy-zenhei fontconfig \
       python3 python3-pip python3-numpy python3-fonttools python-is-python3 \
       mariadb-server mariadb-client \
@@ -46,13 +57,13 @@ WORKDIR /app
 COPY docbox/package.json ./package.json
 # --ignore-scripts：@xenova/transformers 内嵌的 sharp 0.32 会去 GitHub 下载 libvips（国内不可达）；
 # 根依赖 sharp 0.33 用 @img/sharp-linux-x64 预编译包，无需下载。装完立刻验证 sharp 可用。
-RUN npm install --omit=dev --ignore-scripts --no-audit --no-fund \
+RUN npm install --omit=dev --ignore-scripts --no-audit --no-fund --registry=$NPM_REGISTRY \
     && node -e "const s=require('sharp'); console.log('sharp', s.versions.sharp)" \
     && chmod +x node_modules/@ffprobe-installer/linux-x64/ffprobe node_modules/@ffmpeg-installer/linux-x64/ffmpeg 2>/dev/null || true
 
 # VAD 运行时（onnxruntime-node）单独一层
 COPY docbox/vad-runtime/package.json ./vad-runtime/package.json
-RUN cd vad-runtime && npm install --omit=dev --ignore-scripts --no-audit --no-fund
+RUN cd vad-runtime && npm install --omit=dev --ignore-scripts --no-audit --no-fund --registry=$NPM_REGISTRY
 
 # 预置语音模型（SenseVoiceSmall + 流式 zipformer + Silero VAD，420MB，运行时无需联网）
 COPY deploy/models/ ./models/
